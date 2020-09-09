@@ -13,7 +13,8 @@ A typical example call would be:
 
 ./dvb_iq -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000
 
-this visualized the out put you would get with: 
+this visualizes the output you would get from:
+
 ddzap -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000 -o
 
 tuning parameters are for astra 28°E with my unicable setup and the lnb 
