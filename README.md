@@ -1,6 +1,12 @@
 # DVB-IQ
-a small example to show IQ data with libdddvb and DigitalDevices MAX SX8
+small example programs in C and PYTHON to show IQ data with libdddvb and 
+DigitalDevices MAX SX8
 
+**For the C example**
+
+You have to build dvb_iq with
+
+`make` 
 
 You need to install the libdddvb library 
 
@@ -11,11 +17,21 @@ and GTK 3.0 libraries as well as dvben50221.
 
 A typical example call would be:
 
-./dvb_iq -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000
+`./dvb_iq -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000` 
 
 this visualized the out put you would get with: 
-ddzap -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000 -o
+
+`ddzap -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000 -o` 
 
 tuning parameters are for astra 28°E with my unicable setup and the lnb 
-connected to the second input of my MAX SX8
+connected to the second input of my MAX SX8 with your LNB config file in
+~/ddzapconf/
+
+
+**For the PYTHON example**
+
+Just use iqtk.py e.g. as follows:
+
+`ddzap -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000 -o | ./iqtk.py` 
+
 
