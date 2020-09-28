@@ -23,6 +23,12 @@ this visualizes the output you would get from:
 
 `ddzap -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000 -o` 
 
+Additionally you can use dvb_iq with any program that gives you IQ symbols in
+8bit integer format, e.g. with ddzap that would be:
+
+`ddzap -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000 -o | ./dvb_iq` 
+
+
 tuning parameters are for astra 28°E with my unicable setup and the lnb 
 connected to the second input of my MAX SX8 with your LNB config file in
 ~/ddzapconf/
