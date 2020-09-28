@@ -13,6 +13,27 @@ You need to install the libdddvb library
 https://github.com/DigitalDevices/dddvb
 
 and GTK 3.0 libraries as well as dvben50221.
+
+
+On an Ubuntu system this would look like this:
+
+`sudo apt-get install build-essential libgtk-3-dev libglib2.0-dev pkg-config dvb-apps` 
+
+`git clone https://github.com/DigitalDevices/internal_dddvb.git` 
+
+`cd internal_dddvb/lib/; make` 
+
+`sudo make install` 
+
+`cd`
+
+`git clone https://github.com/drmocm/DVB-IQ.git` 
+
+`cd DVB-IQ` 
+
+`make` 
+
+
 (Tell me if I forgot any)
 
 A typical example call would be:
