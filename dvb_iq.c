@@ -86,11 +86,12 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
     if ( !GTK_IS_WIDGET (iq->widget)) return TRUE;
     guint w = gtk_widget_get_allocated_width (iq->widget);
     guint h = gtk_widget_get_allocated_height (iq->widget);
+    memset(iq->data_points,0,256*256);
     if (iq->newn){
 	iq->npacks = iq->newn;
 	iq->newn = 0;
     }
-
+//    if (iq->block) return TRUE;
     g_io_channel_read_chars (source,(char *)iq->data,
 			     iq->npacks*TS_SIZE,
 			     &sr, &error);
@@ -100,7 +101,6 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
 	}
     }
     gtk_widget_queue_draw_area (iq->widget,0,0,w,h);
-    memset(iq->data_points,0,256*256);
 
     return TRUE;
 }
