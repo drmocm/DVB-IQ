@@ -22,6 +22,7 @@
 
 typedef struct iqdata_
 {
+    int8_t *data_points;
     int8_t *data;
     int npacks;
     GtkWidget *widget;
@@ -41,6 +42,13 @@ int init_iqdata(iqdata *iq, int npacks, GtkWidget *widget)
         return -1;
     }
     memset(iq->data,0,MAXPACKS*TS_SIZE);
+    if (!( iq->data_points=(int8_t *) malloc(sizeof(int8_t) *
+				      256*256)))
+    {
+        fprintf(stderr,"not enough memory\n");
+        return -1;
+    }
+    memset(iq->data_points,0,256*256);
     iq->npacks = npacks;
     iq->widget = widget;
     iq->newn = 0;
@@ -82,11 +90,17 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
 	iq->npacks = iq->newn;
 	iq->newn = 0;
     }
-//    if (iq->block) return TRUE;
+
     g_io_channel_read_chars (source,(char *)iq->data,
 			     iq->npacks*TS_SIZE,
 			     &sr, &error);
+    for (i=0; i < iq->npacks; i++){
+	for (j=0; j<TS_SIZE-4; j+=2){
+	    iq->data_points[iq->data[i*TS_SIZE+j+4]+128+ (128+iq->data[i*TS_SIZE+j+4+1])*256]=1;
+	}
+    }
     gtk_widget_queue_draw_area (iq->widget,0,0,w,h);
+    memset(iq->data_points,0,256*256);
 
     return TRUE;
 }
@@ -108,6 +122,19 @@ guint start_read_watch(int fd, GIOFunc func, gpointer data) {
   }
   g_io_channel_unref(channel);
   return id;
+}
+
+static
+void draw_point(cairo_t *cr, int8_t ix, int8_t iy, gdouble w, gdouble h, gdouble mxl){
+    gdouble x,y;
+    
+    x = ix*mxl;
+    y = -iy*mxl;
+
+    cairo_move_to (cr, x-1, y);
+    cairo_line_to (cr, x+1, y);
+    cairo_move_to (cr, x, y+1);
+    cairo_line_to (cr, x, y-1);
 }
 
 static gboolean
@@ -146,23 +173,18 @@ on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
     cairo_line_to (cr, 0.0, clip_y2);
     cairo_stroke (cr);
 
-    gdouble x,y;
     gdouble h = (clip_y2-clip_y1)/256.0;
     gdouble w = (clip_x2-clip_x1)/256.0;
     gdouble mxl = h;
     if (h>w) mxl = w;
+
     if (iq){
 //	iq->block = 1;
-	for (i=0; i < iq->npacks; i++){
-	    for (j=0; j<TS_SIZE-4; j+=2){
-		int8_t ix = iq->data[i*TS_SIZE+j+4];
-		int8_t iy =iq->data[i*TS_SIZE+j+4+1];
-		x = ix*mxl;
-		y = -iy*mxl;
-		cairo_move_to (cr, x-1, y);
-		cairo_line_to (cr, x+1, y);
-		cairo_move_to (cr, x, y-1);
-		cairo_line_to (cr, x, y+1);
+	for (i=0; i < 256; i++){
+	    for (j=0; j< 256; j++){
+		if (iq->data_points[i+j*256]){
+		    draw_point(cr, i-128, j-128,w, h, mxl);
+		}
 	    }
 	}
 //	iq->block = 0;
