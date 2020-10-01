@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <gtk/gtk.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
+#include <getopt.h>
 #include "ddzap.h"
 
 
@@ -21,6 +22,8 @@
 #define MINDATA ((TS_SIZE-4)/2)
 #define MAXDATA (MAXPACKS*MINDATA)
 #define N_IMAGES 3
+
+enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL , };
 
 /* window */
 static GtkWidget *window = NULL;
@@ -44,11 +47,13 @@ typedef struct iqdata_
     int width;
     int height;
     int maxd;
+    int col;
 } iqdata;
 
 int init_iqdata(iqdata *iq, int npacks)
 {
     iq->npacks = 0;
+    iq->col = 0;
     iq->maxd = 0;
     iq->pcount = 0;
     iq->width= 0;
@@ -128,34 +133,43 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
     iq->pcount += READPACK;
     if (iq->pcount > iq->npacks){
 //plot data after npacks data read
-	
-//	memset(iq->data_points,0,256*256*3*sizeof(guchar));
-	for (i = 0; i < 256; i++){
-	    // coordinate axes
-	    int xr = i*3+256*128*3;
-	    int yr =128*3+i*256*3;
-	    iq->data_points[xr] = 255;
-	    iq->data_points[xr+1] = 255;
-	    iq->data_points[yr] = 255;
-	    iq->data_points[yr+1] = 255;
-	}
 	for (i = 0; i < 256*256*3; i+=3){
 	    // IQ data plot
 		int r = i; 
 		int g = i+1;
 		int b = i+2;
-		int data = 255*iq->data[i/3]/iq->maxd;
-		iq->data_points[g] = data;
-/*	    
-		int c = (256000*data)/(iq->maxd)/1000;
-		if (c < 256){
-		    iq->data_points[r] = c;
-		} else if (c < 512){
-		    iq->data_points[g] = c-256;
-		} else {
-		    iq->data_points[b] = c-512;
+		int m = 255*iq->maxd;
+		int data = 255*iq->data[i/3];
+
+		if (data){
+		    switch (iq->col){
+		    case IQ_EVIL:
+			if (data < m/4) iq->data_points[r] = (2*data)/iq->maxd;
+			else  if (data >m/2) iq->data_points[g] = data/iq->maxd;
+			break;
+		    case IQ_RED:
+			iq->data_points[r] = data/iq->maxd;
+			break;
+		    case IQ_BLUE:
+			iq->data_points[b] = data/iq->maxd;
+			break;
+
+		    default:
+		    case IQ_GREE:
+			iq->data_points[g] = data/iq->maxd;
+			break;
+		    }
 		}
-*/	
+
+	}
+	for (i = 0; i < 256*3; i+=3){
+	    // coordinate axes
+	    int xr = i    + 256*128*3;
+	    int yr =128*3 + i*256;
+	    iq->data_points[xr] = 255;
+	    iq->data_points[yr] = 255;
+	    iq->data_points[xr+1] = 255;
+	    iq->data_points[yr+1] = 255;
 	}
 	
 	memset(iq->data,0,256*256*sizeof(uint32_t));
@@ -240,16 +254,29 @@ int main (int argc, char **argv)
     char filename[25];
     int filedes[2];
     int fd;
+    int color = 0;
     struct dddvb_fe *fe=NULL;
     pid_t pid=0;
 
     gtk_init (&argc, &argv);
 
     char *newargs[argc+1];
+    int i=0;
     for(int j = 0; j<argc; j++)
     {
-      newargs[j] = argv[j];
+	if ( strncmp (argv[j],"-q",2)){
+	    newargs[i] = argv[j];
+	    i++;
+	} else {
+	    color = strtoul(argv[j]+2, NULL, 0);
+	    printf("color: %d, %s\n",color, argv[j]);
+	    if (!color) {
+		color = strtoul(argv[j+1], NULL, 0);
+		i--;
+	    }
+	}
     }
+    argc = i;
     newargs[argc] = "-o";
     if ((fe = ddzap(argc+1, newargs))){
 	snprintf(filename,25,
@@ -290,7 +317,8 @@ int main (int argc, char **argv)
     da = gtk_drawing_area_new ();
 
     if ( init_iqdata(&iq,MAXPACKS/10) < 0 ) exit(1);
-
+    iq.col = color;
+    
     gtk_window_set_default_size (GTK_WINDOW (window), WIDTH, HEIGHT);
     gtk_window_set_title (GTK_WINDOW (window), "DVB IQ");
     g_signal_connect (window, "destroy", G_CALLBACK (close_window), NULL);
