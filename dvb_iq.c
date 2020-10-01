@@ -10,29 +10,47 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <gtk/gtk.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include "ddzap.h"
+
 
 #define WIDTH 640
 #define HEIGHT 480
 #define TS_SIZE 188
-#define MAXPACKS 100
+#define MAXPACKS 200
 #define BSIZE (TS_SIZE * MAXPACKS)
 #define MINDATA ((TS_SIZE-4)/2)
 #define MAXDATA (MAXPACKS*MINDATA)
+#define N_IMAGES 3
+
+/* window */
+static GtkWidget *window = NULL;
+
+/* Current frame */
+static GdkPixbuf *frame;
+
+/* Images */
+static GdkPixbuf *image;
+
+/* Widgets */
+static GtkWidget *da;
 
 typedef struct iqdata_
 {
-    int8_t *data_points;
+    guchar *data_points;
     int8_t *data;
     int npacks;
     GtkWidget *widget;
     int newn;
-//    int block;
+    int width;
+    int height;
 } iqdata;
 
 int init_iqdata(iqdata *iq, int npacks, GtkWidget *widget)
 {
     iq->npacks = 0;
+    iq->width= 0;
+    iq->height = 0;
     iq->widget = NULL;
     if (npacks < 1 || npacks >MAXPACKS) return -1;
     if (!( iq->data=(int8_t *) malloc(sizeof(int8_t) *
@@ -42,19 +60,19 @@ int init_iqdata(iqdata *iq, int npacks, GtkWidget *widget)
         return -1;
     }
     memset(iq->data,0,MAXPACKS*TS_SIZE);
-    if (!( iq->data_points=(int8_t *) malloc(sizeof(int8_t) *
-				      256*256)))
+    if (!( iq->data_points=(guchar *) malloc(sizeof(guchar) *
+				      256*256*3)))
     {
         fprintf(stderr,"not enough memory\n");
         return -1;
     }
-    memset(iq->data_points,0,256*256);
+    memset(iq->data_points,0,256*256*3);
     iq->npacks = npacks;
     iq->widget = widget;
     iq->newn = 0;
-//    iq->block = 0;
     return 0;
 }
+
 
 static void
 close_window (void)
@@ -75,6 +93,12 @@ static gboolean key_function (GtkWidget *widget, GdkEventKey *event, gpointer da
     }
 }
 
+void destroy_pixdata (guchar *pixels, gpointer data){
+    iqdata *iq = (iqdata *) data;
+    memset(iq->data_points,0,256*256*3);
+}
+
+
 
 gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
 {
@@ -86,7 +110,6 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
     if ( !GTK_IS_WIDGET (iq->widget)) return TRUE;
     guint w = gtk_widget_get_allocated_width (iq->widget);
     guint h = gtk_widget_get_allocated_height (iq->widget);
-    memset(iq->data_points,0,256*256);
     if (iq->newn){
 	iq->npacks = iq->newn;
 	iq->newn = 0;
@@ -95,10 +118,21 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
     g_io_channel_read_chars (source,(char *)iq->data,
 			     iq->npacks*TS_SIZE,
 			     &sr, &error);
+    memset(iq->data_points,0,256*256*3);
     for (i=0; i < iq->npacks; i++){
 	for (j=0; j<TS_SIZE-4; j+=2){
-	    iq->data_points[iq->data[i*TS_SIZE+j+4]+128+ (128+iq->data[i*TS_SIZE+j+4+1])*256]=1;
+	    int ix = iq->data[i*TS_SIZE+j+4]+128;
+	    int qy = iq->data[i*TS_SIZE+j+4+1]+128;
+	    iq->data_points[ix*3  +(256*3)*qy]=0;
+	    iq->data_points[ix*3+1+(256*3)*qy]=255;
+	    iq->data_points[ix*3+2+(256*3)*qy]=0;
 	}
+    }
+    for (i = 0; i < 256; i++){
+	iq->data_points[i*3+256*128*3] = 255;
+	iq->data_points[i*3+1+256*128*3] = 255;
+	iq->data_points[128*3+i*256*3] = 255;
+	iq->data_points[128*3+1+i*256*3] = 255;
     }
     gtk_widget_queue_draw_area (iq->widget,0,0,w,h);
 
@@ -124,19 +158,6 @@ guint start_read_watch(int fd, GIOFunc func, gpointer data) {
   return id;
 }
 
-static
-void draw_point(cairo_t *cr, int8_t ix, int8_t iy, gdouble w, gdouble h, gdouble mxl){
-    gdouble x,y;
-    
-    x = ix*mxl;
-    y = -iy*mxl;
-
-    cairo_move_to (cr, x-1, y);
-    cairo_line_to (cr, x+1, y);
-    cairo_move_to (cr, x, y+1);
-    cairo_line_to (cr, x, y-1);
-}
-
 static gboolean
 on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
 {
@@ -146,6 +167,7 @@ on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
     gint i,j;
     GdkWindow *window = gtk_widget_get_window(widget);
     iqdata *iq = (iqdata *) data;
+
     /* Determine GtkDrawingArea dimensions */
     gdk_window_get_geometry (window,
             &da.x,
@@ -153,48 +175,41 @@ on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
             &da.width,
             &da.height);
 
+
     /* Draw on a black background */
     cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
     cairo_paint (cr);
 
-    /* Change the transformation matrix */
-    cairo_translate (cr, da.width / 2, da.height / 2);
 
-    /* Determine the data points to calculate (ie. those in the clipping zone */
+//    cairo_translate (cr, da.width / 2, da.height / 2);
+
     cairo_device_to_user_distance (cr, &dx, &dy);
     cairo_clip_extents (cr, &clip_x1, &clip_y1, &clip_x2, &clip_y2);
-    cairo_set_line_width (cr, dx);
+    int w = clip_x2-clip_x1;
+    int h = clip_y2-clip_y1;
 
-    /* Draws x and y axis */
-    cairo_set_source_rgb (cr, 0.0, 1.0, 0.0);
-    cairo_move_to (cr, clip_x1, 0.0);
-    cairo_line_to (cr, clip_x2, 0.0);
-    cairo_move_to (cr, 0.0, clip_y1);
-    cairo_line_to (cr, 0.0, clip_y2);
-    cairo_stroke (cr);
-
-    gdouble h = (clip_y2-clip_y1)/256.0;
-    gdouble w = (clip_x2-clip_x1)/256.0;
-    gdouble mxl = h;
-    if (h>w) mxl = w;
-
-    if (iq){
-//	iq->block = 1;
-	for (i=0; i < 256; i++){
-	    for (j=0; j< 256; j++){
-		if (iq->data_points[i+j*256]){
-		    draw_point(cr, i-128, j-128,w, h, mxl);
-		}
-	    }
-	}
-//	iq->block = 0;
+    if (iq->width != w || iq->height != h){
+	iq->width = w;
+	iq->width = h;
+	g_object_unref (frame);
+	frame = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
+				FALSE, //has_alpha
+				8,     //bits_per_sample
+				w,   //width
+				h);  //height
     }
-	
+    image = gdk_pixbuf_new_from_data (iq->data_points,
+				      GDK_COLORSPACE_RGB,
+				      FALSE, //has_alpha
+				      8,256,256,3*256,destroy_pixdata,iq);
+    gdk_pixbuf_composite (image,
+			  frame,
+			  0,0,w,h,0,0,w/256.0,h/256.0,
+			  GDK_INTERP_NEAREST,255); 
     
-    /* Draw the curve */
-    cairo_set_source_rgba (cr, .2, 1.0, 0.2, 0.6);
-    cairo_stroke (cr);
-
+    gdk_cairo_set_source_pixbuf (cr, frame, 0, 0);
+    cairo_paint (cr);
+    g_object_unref(image);
     return FALSE;
 }
 
@@ -208,10 +223,9 @@ void on_value_changed(GtkRange* widget, gpointer data)
 
 int main (int argc, char **argv)
 {
-    GtkWidget *window;
-    GtkWidget *da;
     GtkWidget *npackr;
     GtkWidget *vbox;
+    GError *error=NULL;
     iqdata iq;
     char filename[25];
     int filedes[2];
@@ -274,9 +288,11 @@ int main (int argc, char **argv)
 
     g_signal_connect (G_OBJECT (da),"draw", G_CALLBACK (on_draw), (gpointer*)&iq);
     npackr = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,
-				      1,
+				      MAXPACKS/20,
 				      MAXPACKS,
 				      MAXPACKS/10);
+
+    
     start_read_watch(fd, read_data, &iq);
 
     gtk_scale_set_draw_value(GTK_SCALE(npackr), TRUE);
