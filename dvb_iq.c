@@ -15,7 +15,7 @@
 
 
 #define WIDTH 640
-#define HEIGHT 480
+#define HEIGHT 720
 #define TS_SIZE 188
 #define MAXPACKS 200
 #define BSIZE (TS_SIZE * MAXPACKS)
@@ -109,7 +109,6 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
 	iq->npacks = iq->newn;
 	iq->newn = 0;
     }
-//    if (iq->block) return TRUE;
     g_io_channel_read_chars (source,(char *)iq->data,
 			     iq->npacks*TS_SIZE,
 			     &sr, &error);
@@ -118,9 +117,9 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
 	for (j=0; j<TS_SIZE-4; j+=2){
 	    int ix = iq->data[i*TS_SIZE+j+4]+128;
 	    int qy = iq->data[i*TS_SIZE+j+4+1]+128;
-	    iq->data_points[ix*3  +(256*3)*qy]=0;
+//	    iq->data_points[ix*3  +(256*3)*qy]=0;
 	    iq->data_points[ix*3+1+(256*3)*qy]=255;
-	    iq->data_points[ix*3+2+(256*3)*qy]=0;
+//	    iq->data_points[ix*3+2+(256*3)*qy]=0;
 	}
     }
     for (i = 0; i < 256; i++){
@@ -157,35 +156,18 @@ static gboolean
 on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
 {
     GdkRectangle da;            /* GtkDrawingArea size */
-    gdouble dx = 5.0, dy = 5.0; /* Pixels between each point */
-    gdouble clip_x1 = 0.0, clip_y1 = 0.0, clip_x2 = 0.0, clip_y2 = 0.0;
-    gint i,j;
     GdkWindow *window = gtk_widget_get_window(widget);
     iqdata *iq = (iqdata *) data;
 
     /* Determine GtkDrawingArea dimensions */
-    gdk_window_get_geometry (window,
-            &da.x,
-            &da.y,
-            &da.width,
-            &da.height);
+    gdk_window_get_geometry (window, &da.x, &da.y, &da.width, &da.height);
 
-
-    /* Draw on a black background */
-    cairo_set_source_rgb (cr, 0.0, 0.0, 0.0);
-    cairo_paint (cr);
-
-
-//    cairo_translate (cr, da.width / 2, da.height / 2);
-
-    cairo_device_to_user_distance (cr, &dx, &dy);
-    cairo_clip_extents (cr, &clip_x1, &clip_y1, &clip_x2, &clip_y2);
-    int w = clip_x2-clip_x1;
-    int h = clip_y2-clip_y1;
+    int w = da.width;
+    int h = da.height;
 
     if (iq->width != w || iq->height != h){
 	iq->width = w;
-	iq->width = h;
+	iq->height = h;
 	g_object_unref (frame);
 	frame = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
 				FALSE, //has_alpha
