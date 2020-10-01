@@ -40,7 +40,6 @@ typedef struct iqdata_
     guchar *data_points;
     int8_t *data;
     int npacks;
-    GtkWidget *widget;
     int newn;
     int width;
     int height;
@@ -51,7 +50,6 @@ int init_iqdata(iqdata *iq, int npacks, GtkWidget *widget)
     iq->npacks = 0;
     iq->width= 0;
     iq->height = 0;
-    iq->widget = NULL;
     if (npacks < 1 || npacks >MAXPACKS) return -1;
     if (!( iq->data=(int8_t *) malloc(sizeof(int8_t) *
 				      MAXPACKS*TS_SIZE)))
@@ -68,7 +66,6 @@ int init_iqdata(iqdata *iq, int npacks, GtkWidget *widget)
     }
     memset(iq->data_points,0,256*256*3);
     iq->npacks = npacks;
-    iq->widget = widget;
     iq->newn = 0;
     return 0;
 }
@@ -107,9 +104,7 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
     gsize sr=0;
     int i,j;
     iqdata *iq = (iqdata *) data;
-    if ( !GTK_IS_WIDGET (iq->widget)) return TRUE;
-    guint w = gtk_widget_get_allocated_width (iq->widget);
-    guint h = gtk_widget_get_allocated_height (iq->widget);
+    if ( !GTK_IS_WIDGET (da)) return TRUE;
     if (iq->newn){
 	iq->npacks = iq->newn;
 	iq->newn = 0;
@@ -134,7 +129,7 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
 	iq->data_points[128*3+i*256*3] = 255;
 	iq->data_points[128*3+1+i*256*3] = 255;
     }
-    gtk_widget_queue_draw_area (iq->widget,0,0,w,h);
+    gtk_widget_queue_draw (da);
 
     return TRUE;
 }
