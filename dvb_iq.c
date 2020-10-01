@@ -45,7 +45,7 @@ typedef struct iqdata_
     int height;
 } iqdata;
 
-int init_iqdata(iqdata *iq, int npacks, GtkWidget *widget)
+int init_iqdata(iqdata *iq, int npacks)
 {
     iq->npacks = 0;
     iq->width= 0;
@@ -274,7 +274,7 @@ int main (int argc, char **argv)
     vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
     da = gtk_drawing_area_new ();
 
-    if ( init_iqdata(&iq,MAXPACKS/10,da) < 0 ) exit(1);
+    if ( init_iqdata(&iq,MAXPACKS/10) < 0 ) exit(1);
 
     gtk_window_set_default_size (GTK_WINDOW (window), WIDTH, HEIGHT);
     gtk_window_set_title (GTK_WINDOW (window), "DVB IQ");
