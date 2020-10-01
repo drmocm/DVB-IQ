@@ -17,8 +17,7 @@
 #define WIDTH 640
 #define HEIGHT 720
 #define TS_SIZE 188
-#define MAXPACKS 200
-#define BSIZE (TS_SIZE * MAXPACKS)
+#define MAXPACKS 20000
 #define MINDATA ((TS_SIZE-4)/2)
 #define MAXDATA (MAXPACKS*MINDATA)
 #define N_IMAGES 3
@@ -38,33 +37,36 @@ static GtkWidget *da;
 typedef struct iqdata_
 {
     guchar *data_points;
-    int8_t *data;
+    uint32_t *data;
     int npacks;
+    int pcount;
     int newn;
     int width;
     int height;
+    int maxd;
 } iqdata;
 
 int init_iqdata(iqdata *iq, int npacks)
 {
     iq->npacks = 0;
+    iq->maxd = 0;
+    iq->pcount = 0;
     iq->width= 0;
     iq->height = 0;
     if (npacks < 1 || npacks >MAXPACKS) return -1;
-    if (!( iq->data=(int8_t *) malloc(sizeof(int8_t) *
-				      MAXPACKS*TS_SIZE)))
+    if (!( iq->data=(uint32_t *) malloc(sizeof(uint32_t) *256*256)))
     {
         fprintf(stderr,"not enough memory\n");
         return -1;
     }
-    memset(iq->data,0,MAXPACKS*TS_SIZE);
+    memset(iq->data,0,256*256*sizeof(uint32_t));
     if (!( iq->data_points=(guchar *) malloc(sizeof(guchar) *
-				      256*256*3)))
+					     256*256*3)))
     {
         fprintf(stderr,"not enough memory\n");
         return -1;
     }
-    memset(iq->data_points,0,256*256*3);
+    memset(iq->data_points,0,256*256*3*sizeof(guchar));
     iq->npacks = npacks;
     iq->newn = 0;
     return 0;
@@ -92,11 +94,13 @@ static gboolean key_function (GtkWidget *widget, GdkEventKey *event, gpointer da
 
 void destroy_pixdata (guchar *pixels, gpointer data){
     iqdata *iq = (iqdata *) data;
-    memset(iq->data_points,0,256*256*3);
+//    memset(iq->data_points,0,256*256*3);
 }
 
 
 
+#define READPACK 100
+#define BSIZE (TS_SIZE * READPACK)
 gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
 {
     GError *error = NULL;	
@@ -104,32 +108,61 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
     gsize sr=0;
     int i,j;
     iqdata *iq = (iqdata *) data;
-    if ( !GTK_IS_WIDGET (da)) return TRUE;
+    if ( da && !GTK_IS_WIDGET (da)) return TRUE;
     if (iq->newn){
 	iq->npacks = iq->newn;
 	iq->newn = 0;
     }
-    g_io_channel_read_chars (source,(char *)iq->data,
-			     iq->npacks*TS_SIZE,
+    g_io_channel_read_chars (source,(char *)buf, BSIZE,
 			     &sr, &error);
-    memset(iq->data_points,0,256*256*3);
-    for (i=0; i < iq->npacks; i++){
-	for (j=0; j<TS_SIZE-4; j+=2){
-	    int ix = iq->data[i*TS_SIZE+j+4]+128;
-	    int qy = iq->data[i*TS_SIZE+j+4+1]+128;
-//	    iq->data_points[ix*3  +(256*3)*qy]=0;
-	    iq->data_points[ix*3+1+(256*3)*qy]=255;
-//	    iq->data_points[ix*3+2+(256*3)*qy]=0;
+    for (i=0; i < READPACK*TS_SIZE; i+=TS_SIZE){
+	for (j=4; j<TS_SIZE; j+=2){
+	    int ix = buf[i+j]+128;
+	    int qy = buf[i+j+1]+128;
+	    iq->data[ix+256*qy] += 1;
+	    int c = iq->data[ix+256*qy];
+	    if ( c > iq->maxd) iq->maxd = c;
 	}
     }
-    for (i = 0; i < 256; i++){
-	iq->data_points[i*3+256*128*3] = 255;
-	iq->data_points[i*3+1+256*128*3] = 255;
-	iq->data_points[128*3+i*256*3] = 255;
-	iq->data_points[128*3+1+i*256*3] = 255;
+    
+    iq->pcount += READPACK;
+    if (iq->pcount > iq->npacks){
+//plot data after npacks data read
+	
+//	memset(iq->data_points,0,256*256*3*sizeof(guchar));
+	for (i = 0; i < 256; i++){
+	    // coordinate axes
+	    int xr = i*3+256*128*3;
+	    int yr =128*3+i*256*3;
+	    iq->data_points[xr] = 255;
+	    iq->data_points[xr+1] = 255;
+	    iq->data_points[yr] = 255;
+	    iq->data_points[yr+1] = 255;
+	}
+	for (i = 0; i < 256*256*3; i+=3){
+	    // IQ data plot
+		int r = i; 
+		int g = i+1;
+		int b = i+2;
+		int data = 255*iq->data[i/3]/iq->maxd;
+		iq->data_points[g] = data;
+/*	    
+		int c = (256000*data)/(iq->maxd)/1000;
+		if (c < 256){
+		    iq->data_points[r] = c;
+		} else if (c < 512){
+		    iq->data_points[g] = c-256;
+		} else {
+		    iq->data_points[b] = c-512;
+		}
+*/	
+	}
+	
+	memset(iq->data,0,256*256*sizeof(uint32_t));
+	iq->maxd = 0;
+	iq->pcount = 0;
+	gtk_widget_queue_draw (da);
     }
-    gtk_widget_queue_draw (da);
-
     return TRUE;
 }
 
@@ -168,7 +201,7 @@ on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
     if (iq->width != w || iq->height != h){
 	iq->width = w;
 	iq->height = h;
-	g_object_unref (frame);
+	if ( frame && !GTK_IS_WIDGET (frame)) g_object_unref (frame);
 	frame = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
 				FALSE, //has_alpha
 				8,     //bits_per_sample
