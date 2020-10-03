@@ -12,6 +12,7 @@
 #include <gtk/gtk.h>
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <getopt.h>
+#include <math.h>
 #include "ddzap.h"
 
 
@@ -23,7 +24,7 @@
 #define MAXDATA (MAXPACKS*MINDATA)
 #define N_IMAGES 3
 
-enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL , };
+enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL, IQ_LOG_RED, IQ_LOG_GREEN, IQ_LOG_BLUE , IQ_LOG_EVIL ,};
 
 /* window */
 static GtkWidget *window = NULL;
@@ -123,7 +124,7 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
     for (i=0; i < READPACK*TS_SIZE; i+=TS_SIZE){
 	for (j=4; j<TS_SIZE; j+=2){
 	    int ix = buf[i+j]+128;
-	    int qy = buf[i+j+1]+128;
+	    int qy = 128-buf[i+j+1];
 	    iq->data[ix+256*qy] += 1;
 	    int c = iq->data[ix+256*qy];
 	    if ( c > iq->maxd) iq->maxd = c;
@@ -133,16 +134,32 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
     iq->pcount += READPACK;
     if (iq->pcount > iq->npacks){
 //plot data after npacks data read
+	int m = 255*iq->maxd;
+	double lm = log((double)m);
 	for (i = 0; i < 256*256*3; i+=3){
 	    // IQ data plot
 		int r = i; 
 		int g = i+1;
 		int b = i+2;
-		int m = 255*iq->maxd;
+		int odata = iq->data[i/3];
 		int data = 255*iq->data[i/3];
+		double lod = log((double)odata); 
 
 		if (data){
 		    switch (iq->col){
+		    case IQ_LOG_EVIL:
+			if (data < m/4) iq->data_points[r] = (int)((512.0*lod)/lm);
+			else  if (data >m/2) iq->data_points[g] = (int)(255.0*lod/lm);
+			break;
+		    case IQ_LOG_RED:
+			iq->data_points[r] = (int)(255.0*lod/lm);
+			break;
+		    case IQ_LOG_GREEN:
+			iq->data_points[g] = (int)(255.0*lod/lm);
+			break;
+		    case IQ_LOG_BLUE:
+			iq->data_points[b] = (int)(255.0*lod/lm);
+			break;
 		    case IQ_EVIL:
 			if (data < m/4) iq->data_points[r] = (2*data)/iq->maxd;
 			else  if (data >m/2) iq->data_points[g] = data/iq->maxd;
