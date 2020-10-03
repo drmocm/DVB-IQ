@@ -54,6 +54,12 @@ tuning parameters are for astra 28°E with my unicable setup and the lnb
 connected to the second input of my MAX SX8 with your LNB config file in
 ~/ddzapconf/
 
+Try 
+
+`./dvb_iq  -d S2 -p v -f 12522000  -s 22500000  -c ~/ddzapconf/ -l64  -i 0x10000000 -q6` 
+
+on Astra 28°E for a nice 16PSK example.
+
 There is one more cli option for chosing the color scheme:
 
 `./dvb_iq -q X`
