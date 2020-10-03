@@ -269,10 +269,9 @@ int main (int argc, char **argv)
 	    i++;
 	} else {
 	    color = strtoul(argv[j]+2, NULL, 0);
-	    printf("color: %d, %s\n",color, argv[j]);
 	    if (!color) {
 		color = strtoul(argv[j+1], NULL, 0);
-		i--;
+		j++;
 	    }
 	}
     }
