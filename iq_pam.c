@@ -94,25 +94,35 @@ void read_data (int fdin, iqdata *iq)
 	uint64_t odata = iq->data[i/3];
 	uint64_t data = 255*iq->data[i/3];
 	double lod = log((double)odata); 
+	double q = lod/lm;
 
 	if (data){
 	    switch (iq->col){
 	    case IQ_LOG_EVIL:
-		if (data < m/4) iq->data_points[r] = (int)((512.0*lod)/lm)&0xff;
-		else  if (data >m/2) iq->data_points[g] = (int)(255.0*lod/lm)&0xff;
+		if ( q < 0.25){
+		    iq->data_points[b] = (int)(1024.0*q);
+		} else {
+			if (q >0.5) iq->data_points[g] = (int)(255.0*q);
+		    else
+			iq->data_points[r] = (int)(512.0*q);
+		}
 		break;
 	    case IQ_LOG_RED:
-		iq->data_points[r] = (int)(255.0*lod/lm)&0xff;
+		iq->data_points[r] = (int)(255.0*q)&0xff;
 		break;
 	    case IQ_LOG_GREEN:
-		iq->data_points[g] = (int)(255.0*lod/lm)&0xff;
+		iq->data_points[g] = (int)(255.0*q)&0xff;
 		break;
 	    case IQ_LOG_BLUE:
-		iq->data_points[b] = (int)(255.0*lod/lm)&0xff;
+		iq->data_points[b] = (int)(255.0*q)&0xff;
 		break;
 	    case IQ_EVIL:
-		if (data < m/4) iq->data_points[r] = ((2*data)/maxd)&0xff;
-		else  if (data >m/2) iq->data_points[g] = (data/maxd)&0xff;
+		if  (data < m/4){
+		    iq->data_points[b] = ((4*data)/maxd)&0xff;
+		} else {
+		    if (data >m/2) iq->data_points[g] = (data/maxd)&0xff;
+		    else iq->data_points[r] = (2*data/maxd)&0xff;
+		}
 		break;
 	    case IQ_RED:
 		iq->data_points[r] = (data/maxd)&0xff;
