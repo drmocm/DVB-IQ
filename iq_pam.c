@@ -8,6 +8,8 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <math.h>
+#include <time.h>
+
 #include "ddzap.h"
 
 
@@ -21,29 +23,20 @@ enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL, IQ_LOG_RED, IQ_LOG_GREEN, IQ_LOG_BL
 typedef struct iqdata_
 {
     char *data_points;
-    uint32_t *data;
-    int npacks;
-    int newn;
-    int width;
-    int height;
-    int maxd;
+    uint64_t *data;
     int col;
 } iqdata;
 
 int init_iqdata(iqdata *iq, int npacks)
 {
-    iq->npacks = 0;
     iq->col = 0;
-    iq->maxd = 0;
-    iq->width= 0;
-    iq->height = 0;
     if (npacks < 1 || npacks >MAXPACKS) return -1;
-    if (!( iq->data=(uint32_t *) malloc(sizeof(uint32_t) *256*256)))
+    if (!( iq->data=(uint64_t *) malloc(sizeof(uint64_t) *256*256)))
     {
         fprintf(stderr,"not enough memory\n");
         return -1;
     }
-    memset(iq->data,0,256*256*sizeof(uint32_t));
+    memset(iq->data,0,256*256*sizeof(uint64_t));
     if (!( iq->data_points=(char *) malloc(sizeof(char) *
 					     256*256*3)))
     {
@@ -51,79 +44,86 @@ int init_iqdata(iqdata *iq, int npacks)
         return -1;
     }
     memset(iq->data_points,0,256*256*3*sizeof(char));
-    iq->npacks = npacks;
-    iq->newn = 0;
     return 0;
 }
 
 
+static long getutime(){
+        struct timespec t0;
+        clock_gettime(CLOCK_MONOTONIC_RAW,&t0);
+        return t0.tv_sec * (int)1e9 + t0.tv_nsec;
+}
 
-#define READPACK 1000
-#define BSIZE (TS_SIZE * READPACK)
+#define BSIZE 100*TS_SIZE
+#define DTIME 40000000ULL
 void read_data (int fdin, iqdata *iq)
 {
-    char buf[BSIZE];
+    int8_t buf[BSIZE];
     int i,j;
-    if (iq->newn){
-	iq->npacks = iq->newn;
-	iq->newn = 0;
-    }
-    for (i = 0; i < iq->npacks; i+= READPACK){
+    long t0;
+    long t1;
+    uint64_t maxd = 0;
+    
+    t0 = getutime();
+    t1 = t0;
+
+    while ((t1 - t0) < DTIME){
 	int re =0;
 	if ((re=read(fdin,(char *)buf, BSIZE)) < 0){
 	    fprintf(stderr,"Error reading data\n");
 	}
 	for (i=0; i < re; i+=TS_SIZE){
 	    for (j=4; j<TS_SIZE; j+=2){
-		int ix = buf[i+j]+128;
-		int qy = 128-buf[i+j+1];
+		uint8_t ix = buf[i+j]+128;
+		uint8_t qy = 128-buf[i+j+1];
 		iq->data[ix+256*qy] += 1;
-		int c = iq->data[ix+256*qy];
-		if ( c > iq->maxd) iq->maxd = c;
+		uint64_t c = iq->data[ix+256*qy];
+		if ( c > maxd) maxd = c;
 	    }
 	}
+	t1 = getutime();
     }
 
-    int m = 255*iq->maxd;
+    uint64_t m = 255*maxd;
     double lm = log((double)m);
     for (i = 0; i < 256*256*3; i+=3){
 	// IQ data plot
 	int r = i; 
 	int g = i+1;
 	int b = i+2;
-	int odata = iq->data[i/3];
-	int data = 255*iq->data[i/3];
+	uint64_t odata = iq->data[i/3];
+	uint64_t data = 255*iq->data[i/3];
 	double lod = log((double)odata); 
 
 	if (data){
 	    switch (iq->col){
 	    case IQ_LOG_EVIL:
-		if (data < m/4) iq->data_points[r] = (int)((512.0*lod)/lm);
-		else  if (data >m/2) iq->data_points[g] = (int)(255.0*lod/lm);
+		if (data < m/4) iq->data_points[r] = (int)((512.0*lod)/lm)&0xff;
+		else  if (data >m/2) iq->data_points[g] = (int)(255.0*lod/lm)&0xff;
 		break;
 	    case IQ_LOG_RED:
-		iq->data_points[r] = (int)(255.0*lod/lm);
+		iq->data_points[r] = (int)(255.0*lod/lm)&0xff;
 		break;
 	    case IQ_LOG_GREEN:
-		iq->data_points[g] = (int)(255.0*lod/lm);
+		iq->data_points[g] = (int)(255.0*lod/lm)&0xff;
 		break;
 	    case IQ_LOG_BLUE:
-		iq->data_points[b] = (int)(255.0*lod/lm);
+		iq->data_points[b] = (int)(255.0*lod/lm)&0xff;
 		break;
 	    case IQ_EVIL:
-		if (data < m/4) iq->data_points[r] = (2*data)/iq->maxd;
-		else  if (data >m/2) iq->data_points[g] = data/iq->maxd;
+		if (data < m/4) iq->data_points[r] = ((2*data)/maxd)&0xff;
+		else  if (data >m/2) iq->data_points[g] = (data/maxd)&0xff;
 		break;
 	    case IQ_RED:
-		iq->data_points[r] = data/iq->maxd;
+		iq->data_points[r] = (data/maxd)&0xff;
 		break;
 	    case IQ_BLUE:
-		iq->data_points[b] = data/iq->maxd;
+		iq->data_points[b] = (data/maxd)&0xff;
 		break;
 		
 	    default:
 	    case IQ_GREE:
-		iq->data_points[g] = data/iq->maxd;
+		iq->data_points[g] = (data/maxd)&0xff;
 		break;
 	    }
 	}
@@ -138,9 +138,8 @@ void read_data (int fdin, iqdata *iq)
 	iq->data_points[xr+1] = 255;
 	iq->data_points[yr+1] = 255;
     }
+    memset(iq->data,0,256*256*sizeof(uint64_t));
 	
-    memset(iq->data,0,256*256*sizeof(uint32_t));
-    iq->maxd = 0;
 }
 
 
