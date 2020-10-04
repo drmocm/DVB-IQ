@@ -66,6 +66,14 @@ There is one more cli option for chosing the color scheme:
 
 selects scheme number X (1=red, 2=green, 3=blue, 4= multi color)
 
+**ip_pam**
+
+I added a simpler program that takes the same CLI options but just creates 
+PAM images which can be fed to ffplay as follows:
+
+`/iq_pam  -d S2 -p v -f 12522000  -s 22500000  -c ~/ddzapconf/ -l64  -i 0x10000004 -q 6|  ffplay -f pam_pipe -i -`
+
+
 **For the PYTHON example**
 
 Just use iqtk.py e.g. as follows:
