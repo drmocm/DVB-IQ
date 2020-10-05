@@ -18,12 +18,8 @@
 
 #define WIDTH 640
 #define HEIGHT 720
-#define TS_SIZE 188
-#define MAXPACKS 20000
 #define MINDATA ((TS_SIZE-4)/2)
 #define MAXDATA (MAXPACKS*MINDATA)
-
-enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL, IQ_LOG_RED, IQ_LOG_GREEN, IQ_LOG_BLUE , IQ_LOG_EVIL ,};
 
 /* window */
 static GtkWidget *window = NULL;
@@ -292,7 +288,7 @@ int main (int argc, char **argv)
 	}
     }
     argc = i;
-    newargs[argc] = "-o";
+    newargs[argc] = "-o 0";
     if ((fe = ddzap(argc+1, newargs))){
 	snprintf(filename,25,
 		 "/dev/dvb/adapter%d/dvr%d",fe->anum, fe->fnum);

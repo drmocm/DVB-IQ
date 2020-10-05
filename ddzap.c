@@ -1,18 +1,6 @@
-//#include <linux/dvb/frontend.h>
-#include "frontend.h"
-#include <libdddvb.h>
-#include <stdio.h>
-#include <string.h>
-#include <getopt.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <stdint.h>
+#include "ddzap.h"
 
-		    
+
 static uint32_t root2gold(uint32_t root)
 {
 	uint32_t x, g;
@@ -27,6 +15,10 @@ static uint32_t root2gold(uint32_t root)
 
 struct dddvb_fe *ddzap(int argc, char **argv)
 {
+        char filename[25];
+        int color = 0;
+	pamdata iq;
+	int outtype  = 0;
 	struct dddvb *dd;
 	struct dddvb_fe *fe;
 	struct dddvb_params p;
@@ -60,21 +52,26 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 			{"mtype", required_argument, 0, 'm'},
 			{"verbosity", required_argument, 0, 'v'},
 			{"open_dvr", no_argument, 0, 'o'},
+			{"color_scheme", required_argument , 0, 'q'},
 			{"help", no_argument , 0, 'h'},
 			{0, 0, 0, 0}
 		};
                 c = getopt_long(argc, argv, 
-				"c:i:f:s:d:p:hg:r:n:b:l:v:m:o",
+				"c:i:f:s:d:p:hg:r:n:b:l:v:m:o:q:",
 				long_options, &option_index);
 		if (c==-1)
  			break;
 		
 		switch (c) {
+		case 'q':
+		        color = strtoul(optarg, NULL, 0);
+			break;
 		case 'o':
-		    fout = stderr;
+		        outtype = strtoul(optarg, NULL, 0);
+		        fout = stderr;
 		        fprintf(fout,"Reading from dvr\n");
 		        odvr = 1;
-			break;
+		        break;
 		case 'c':
 		        config = strdup(optarg);
 			break;
@@ -251,16 +248,33 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 			sleep(1);
 		}
 		fprintf(stderr,"got lock on %s\n", fe->name);
-		return fe;
-/*
-		fprintf(stderr,"opening %s\n", filename);
-		if ((fd = open(filename ,O_RDONLY)) < 0){
-		        fprintf(stderr,"Error opening input file:%s\n",filename);
+
+		switch (outtype){
+		case 0:
+		        return fe;
+		        break;
+		case 1:
+		        snprintf(filename,25,
+				 "/dev/dvb/adapter%d/dvr%d",fe->anum, fe->fnum);
+
+		        fprintf(stderr,"opening %s\n", filename);
+		        if ((fd = open(filename ,O_RDONLY)) < 0){
+		            fprintf(stderr,"Error opening input file:%s\n",filename);
+		        }
+			while(outtype == 1){
+			    int re=0;
+			    re=read(fd,buf,BUFFSIZE);
+			    re=write(fileno(stdout),buf,BUFFSIZE);
+			}
+		case 2:
+			while(1){
+			    pam_read_data(fd, &iq);
+			    pam_write(1, &iq);
+			}
+		        return NULL;
+			break;
 		}
-		while(1){
-		    read(fd,buf,BUFFSIZE);
-		    write(fileno(stdout),buf,BUFFSIZE);
-		}
-*/
+
 	}
+	return NULL;
 }
