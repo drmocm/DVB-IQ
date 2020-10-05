@@ -18,7 +18,7 @@
 #define TS_SIZE 188
 #define MAXPACKS 200000
 
-enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL, IQ_LOG_RED, IQ_LOG_GREEN, IQ_LOG_BLUE , IQ_LOG_EVIL ,};
+enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL, IQ_LOG_RED, IQ_LOG_GREEN, IQ_LOG_BLUE , IQ_LOG_EVIL , IQ_TEST, };
 
 typedef struct iqdata_
 {
@@ -122,6 +122,19 @@ void read_data (int fdin, iqdata *iq)
 		} else {
 		    if (data >m/2) iq->data_points[g] = (data/maxd)&0xff;
 		    else iq->data_points[r] = (2*data/maxd)&0xff;
+		}
+		break;
+	    case IQ_TEST:
+		if  (data < m/4){
+		    iq->data_points[b] = ((4*data)/maxd)&0xff;
+		    iq->data_points[g] = ((4*data)/maxd)&0xff;
+		} else {
+		    if (data >m/2) {
+			iq->data_points[g] = (data/maxd)&0xff;
+		    } else {
+			iq->data_points[g] = (2*data/maxd)&0xff;
+			iq->data_points[r] = (2*data/maxd)&0xff;
+		    }
 		}
 		break;
 	    case IQ_RED:
