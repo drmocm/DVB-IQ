@@ -25,8 +25,12 @@ typedef struct pamdata_
     int col;
 } pamdata;
 
-int init_pamdata(pamdata *iq);
+int init_pamdata(pamdata *iq,int col);
 void pam_read_data (int fdin, pamdata *iq);
 void pam_write (int fdout, pamdata *iq);
+void pam_coordinate_axes(pamdata *iq, unsigned char r,
+			 unsigned char g, unsigned char b);
+void pam_data_convert(pamdata *iq ,uint64_t maxd);
+
 
 #endif /* _PAM_H_*/

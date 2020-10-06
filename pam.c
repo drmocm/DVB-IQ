@@ -2,7 +2,7 @@
 #include "pam.h"
 #include "ddzap.h"
 
-int init_pamdata(pamdata *iq)
+int init_pamdata(pamdata *iq,int color)
 {
     iq->col = 0;
     if (!( iq->data=(uint64_t *) malloc(sizeof(uint64_t) *256*256)))
@@ -11,13 +11,14 @@ int init_pamdata(pamdata *iq)
         return -1;
     }
     memset(iq->data,0,256*256*sizeof(uint64_t));
-    if (!( iq->data_points=(char *) malloc(sizeof(char) *
+    if (!( iq->data_points=(unsigned char *) malloc(sizeof(unsigned char) *
 					     256*256*3)))
     {
         fprintf(stderr,"not enough memory\n");
         return -1;
     }
     memset(iq->data_points,0,256*256*3*sizeof(char));
+    iq->col = color;
     return 0;
 }
 
@@ -28,37 +29,26 @@ static long getutime(){
         return t0.tv_sec * (int)1e9 + t0.tv_nsec;
 }
 
-#define BSIZE 100*TS_SIZE
-#define DTIME 40000000ULL
-void pam_read_data (int fdin, pamdata *iq)
-{
-    int8_t buf[BSIZE];
-    int i,j;
-    
-    long t0;
-    long t1;
-    uint64_t maxd = 0;
-    
-    t0 = getutime();
-    t1 = t0;
-
-    while ((t1 - t0) < DTIME){
-	int re =0;
-	if ((re=read(fdin,(char *)buf, BSIZE)) < 0){
-	    fprintf(stderr,"Error reading data\n");
-	}
-	for (i=0; i < re; i+=TS_SIZE){
-	    for (j=4; j<TS_SIZE; j+=2){
-		uint8_t ix = buf[i+j]+128;
-		uint8_t qy = 128-buf[i+j+1];
-		iq->data[ix+256*qy] += 1;
-		uint64_t c = iq->data[ix+256*qy];
-		if ( c > maxd) maxd = c;
-	    }
-	}
-	t1 = getutime();
+void pam_coordinate_axes(pamdata *iq, unsigned char r,
+			 unsigned char g, unsigned char b){
+    int i;
+    for (i = 0; i < 256*3; i+=3){
+	// coordinate axes
+	int xr = i    + 256*128*3;
+	int yr =128*3 + i*256;
+	iq->data_points[xr] = r;
+	iq->data_points[yr] = r;
+	iq->data_points[xr+1] = g;
+	iq->data_points[yr+1] = g;
+	iq->data_points[xr+2] = b;
+	iq->data_points[yr+2] = b;
     }
 
+}
+
+void pam_data_convert(pamdata *iq ,uint64_t maxd)
+{
+    int i;
     uint64_t m = 255*maxd;
     double lm = log((double)m);
     for (i = 0; i < 256*256*3; i+=3){
@@ -127,15 +117,41 @@ void pam_read_data (int fdin, pamdata *iq)
 	}
 	
     }
-    for (i = 0; i < 256*3; i+=3){
-	// coordinate axes
-	int xr = i    + 256*128*3;
-	int yr =128*3 + i*256;
-	iq->data_points[xr] = 255;
-	iq->data_points[yr] = 255;
-	iq->data_points[xr+1] = 255;
-	iq->data_points[yr+1] = 255;
+}
+
+#define BSIZE 100*TS_SIZE
+#define DTIME 40000000ULL
+void pam_read_data (int fdin, pamdata *iq)
+{
+    int8_t buf[BSIZE];
+    int i,j;
+    
+    long t0;
+    long t1;
+    uint64_t maxd = 0;
+    
+    t0 = getutime();
+    t1 = t0;
+
+    while ((t1 - t0) < DTIME){
+	int re =0;
+	if ((re=read(fdin,(char *)buf, BSIZE)) < 0){
+	    fprintf(stderr,"Error reading data\n");
+	}
+	for (i=0; i < re; i+=TS_SIZE){
+	    for (j=4; j<TS_SIZE; j+=2){
+		uint8_t ix = buf[i+j]+128;
+		uint8_t qy = 128-buf[i+j+1];
+		iq->data[ix+256*qy] += 1;
+		uint64_t c = iq->data[ix+256*qy];
+		if ( c > maxd) maxd = c;
+	    }
+	}
+	t1 = getutime();
     }
+
+    pam_data_convert(iq, maxd);
+    pam_coordinate_axes(iq, 255,255 ,0);
     memset(iq->data,0,256*256*sizeof(uint64_t));
 	
 }

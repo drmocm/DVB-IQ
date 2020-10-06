@@ -17,8 +17,8 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 {
         char filename[25];
         int color = 0;
+	int outt  = 0;
 	pamdata iq;
-	int outtype  = 0;
 	struct dddvb *dd;
 	struct dddvb_fe *fe;
 	struct dddvb_params p;
@@ -65,11 +65,12 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 		switch (c) {
 		case 'q':
 		        color = strtoul(optarg, NULL, 0);
+			outt = 2;
 			break;
 		case 'o':
-		        outtype = strtoul(optarg, NULL, 0);
+		        outt = strtoul(optarg, NULL, 0);
 		        fout = stderr;
-		        fprintf(fout,"Reading from dvr\n");
+		        fprintf(fout,"Reading from dvr %d\n", outt);
 		        odvr = 1;
 		        break;
 		case 'c':
@@ -249,11 +250,13 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 		}
 		fprintf(stderr,"got lock on %s\n", fe->name);
 
-		switch (outtype){
+		switch (outt){
 		case 0:
+		        fprintf(stderr,"returning fe\n");
 		        return fe;
 		        break;
 		case 1:
+		case 2:
 		        snprintf(filename,25,
 				 "/dev/dvb/adapter%d/dvr%d",fe->anum, fe->fnum);
 
@@ -261,15 +264,16 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 		        if ((fd = open(filename ,O_RDONLY)) < 0){
 		            fprintf(stderr,"Error opening input file:%s\n",filename);
 		        }
-			while(outtype == 1){
+			while(outt == 1){
 			    int re=0;
 			    re=read(fd,buf,BUFFSIZE);
 			    re=write(fileno(stdout),buf,BUFFSIZE);
 			}
-		case 2:
-			while(1){
+		        fprintf(stderr,"writing pamdata\n");
+			if (outt ==2 ) init_pamdata(&iq,color);
+			while(outt == 2){
 			    pam_read_data(fd, &iq);
-			    pam_write(1, &iq);
+			    pam_write(STDOUT_FILENO, &iq);
 			}
 		        return NULL;
 			break;

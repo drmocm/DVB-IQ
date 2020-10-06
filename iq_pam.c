@@ -14,10 +14,12 @@ int main (int argc, char **argv)
     pid_t pid=0;
 
     if (argc > 3 ){
-	char *newargs[argc+1];
+	char *newargs[argc+2];
+	for(int j = 0; j<argc; j++) newargs[j] = argv[j];
 
-	newargs[argc] = "-o 2";
-	if ((fe = ddzap(argc+1, newargs))){
+	newargs[argc] = "-o\0";
+	newargs[argc+1] ="2\0";
+	if ((fe = ddzap(argc+2, newargs))){
 	    fprintf(stderr,"Error\n");
 	}
 	exit(1);
