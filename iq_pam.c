@@ -31,13 +31,9 @@ int main (int argc, char **argv)
 
 	fd = fileno(stdin);
     }
-    if ( init_pamdata(&iq,MAXPACKS/10) < 0 ) exit(1);
+    if ( init_pamdata(&iq) < 0 ) exit(1);
     iq.col = color;
 
-    int fdout = 0;
-    if ((fdout = open("test.pam", O_WRONLY | O_APPEND | O_CREAT, 0644)) < 0){
-	fprintf(stderr,"Error opening input file: %s\n",filename);
-    }
     while (1){
 	pam_read_data(fd, &iq);
 	pam_write(1, &iq);

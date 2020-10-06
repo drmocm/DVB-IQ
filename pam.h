@@ -20,12 +20,12 @@ enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL, IQ_LOG_RED, IQ_LOG_GREEN, IQ_LOG_BL
 
 typedef struct pamdata_
 {
-    char *data_points;
+    unsigned char *data_points;
     uint64_t *data;
     int col;
 } pamdata;
 
-int init_pamdata(pamdata *iq, int npacks);
+int init_pamdata(pamdata *iq);
 void pam_read_data (int fdin, pamdata *iq);
 void pam_write (int fdout, pamdata *iq);
 

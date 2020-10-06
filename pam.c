@@ -2,10 +2,9 @@
 #include "pam.h"
 #include "ddzap.h"
 
-int init_pamdata(pamdata *iq, int npacks)
+int init_pamdata(pamdata *iq)
 {
     iq->col = 0;
-    if (npacks < 1 || npacks >MAXPACKS) return -1;
     if (!( iq->data=(uint64_t *) malloc(sizeof(uint64_t) *256*256)))
     {
         fprintf(stderr,"not enough memory\n");
