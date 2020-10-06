@@ -65,7 +65,6 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 		switch (c) {
 		case 'q':
 		        color = strtoul(optarg, NULL, 0);
-			outt = 2;
 			break;
 		case 'o':
 		        outt = strtoul(optarg, NULL, 0);

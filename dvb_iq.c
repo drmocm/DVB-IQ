@@ -203,24 +203,21 @@ int main (int argc, char **argv)
 
     gtk_init (&argc, &argv);
 
-    char *newargs[argc+1];
-    int i=0;
+    char *newargs[argc+2];
     for(int j = 0; j<argc; j++)
     {
-	if ( strncmp (argv[j],"-q",2)){
-	    newargs[i] = argv[j];
-	    i++;
-	} else {
+	newargs[j] = argv[j];
+	if ( !strncmp (argv[j],"-q",2)){
 	    color = strtoul(argv[j]+2, NULL, 0);
-	    if (!color) {
+	    if (!color && j+1 <argc) {
 		color = strtoul(argv[j+1], NULL, 0);
-		j++;
 	    }
 	}
     }
-    argc = i;
-    newargs[argc] = "-o 0";
-    if ((fe = ddzap(argc+1, newargs))){
+
+    newargs[argc] = "-o";
+    newargs[argc+1] = " 0";
+    if ((fe = ddzap(argc+2, newargs))){
 	snprintf(filename,25,
 		 "/dev/dvb/adapter%d/dvr%d",fe->anum, fe->fnum);
 	if (pipe(filedes) == -1) {
@@ -233,7 +230,8 @@ int main (int argc, char **argv)
 	    perror("fork");
 	    exit(1);
 	} else if (pid == 0) {
-	    while ((dup2(filedes[1], STDOUT_FILENO) == -1) && (errno == EINTR)) {}
+	    while ((dup2(filedes[1], STDOUT_FILENO) == -1)
+		   && (errno == EINTR)) {}
 	    close(filedes[1]);
 	    close(filedes[0]);
 #define BUFFSIZE (1024*188)
