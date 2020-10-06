@@ -14,7 +14,6 @@
 #include <time.h>
 
 #define TS_SIZE 188
-#define MAXPACKS 200000
 
 enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL, IQ_LOG_RED, IQ_LOG_GREEN, IQ_LOG_BLUE , IQ_LOG_EVIL , IQ_TEST, };
 

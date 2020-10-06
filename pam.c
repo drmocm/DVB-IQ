@@ -51,6 +51,7 @@ void pam_data_convert(pamdata *iq ,uint64_t maxd)
     int i;
     uint64_t m = 255*maxd;
     double lm = log((double)m);
+    memset(iq->data_points,0,256*256*3*sizeof(char));
     for (i = 0; i < 256*256*3; i+=3){
 	// IQ data plot
 	int r = i; 
