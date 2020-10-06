@@ -35,39 +35,24 @@ static GtkWidget *da;
 
 typedef struct iqdata_
 {
-    guchar *data_points;
-    uint32_t *data;
+    pamdata pam;
     int npacks;
     int pcount;
     int newn;
     int width;
     int height;
-    int maxd;
-    int col;
+    uint64_t maxd;
 } iqdata;
 
 int init_iqdata(iqdata *iq, int npacks)
 {
     iq->npacks = 0;
-    iq->col = 0;
     iq->maxd = 0;
     iq->pcount = 0;
     iq->width= 0;
     iq->height = 0;
     if (npacks < 1 || npacks >MAXPACKS) return -1;
-    if (!( iq->data=(uint32_t *) malloc(sizeof(uint32_t) *256*256)))
-    {
-        fprintf(stderr,"not enough memory\n");
-        return -1;
-    }
-    memset(iq->data,0,256*256*sizeof(uint32_t));
-    if (!( iq->data_points=(guchar *) malloc(sizeof(guchar) *
-					     256*256*3)))
-    {
-        fprintf(stderr,"not enough memory\n");
-        return -1;
-    }
-    memset(iq->data_points,0,256*256*3*sizeof(guchar));
+    init_pamdata(&iq->pam,1);
     iq->npacks = npacks;
     iq->newn = 0;
     return 0;
@@ -120,71 +105,17 @@ gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
 	for (j=4; j<TS_SIZE; j+=2){
 	    int ix = buf[i+j]+128;
 	    int qy = 128-buf[i+j+1];
-	    iq->data[ix+256*qy] += 1;
-	    int c = iq->data[ix+256*qy];
+	    iq->pam.data[ix+256*qy] += 1;
+	    uint64_t c = iq->pam.data[ix+256*qy];
 	    if ( c > iq->maxd) iq->maxd = c;
 	}
     }
     
     iq->pcount += READPACK;
     if (iq->pcount > iq->npacks){
-//plot data after npacks data read
-	int m = 255*iq->maxd;
-	double lm = log((double)m);
-	for (i = 0; i < 256*256*3; i+=3){
-	    // IQ data plot
-		int r = i; 
-		int g = i+1;
-		int b = i+2;
-		int odata = iq->data[i/3];
-		int data = 255*iq->data[i/3];
-		double lod = log((double)odata); 
-
-		if (data){
-		    switch (iq->col){
-		    case IQ_LOG_EVIL:
-			if (data < m/4) iq->data_points[r] = (int)((512.0*lod)/lm);
-			else  if (data >m/2) iq->data_points[g] = (int)(255.0*lod/lm);
-			break;
-		    case IQ_LOG_RED:
-			iq->data_points[r] = (int)(255.0*lod/lm);
-			break;
-		    case IQ_LOG_GREEN:
-			iq->data_points[g] = (int)(255.0*lod/lm);
-			break;
-		    case IQ_LOG_BLUE:
-			iq->data_points[b] = (int)(255.0*lod/lm);
-			break;
-		    case IQ_EVIL:
-			if (data < m/4) iq->data_points[r] = (2*data)/iq->maxd;
-			else  if (data >m/2) iq->data_points[g] = data/iq->maxd;
-			break;
-		    case IQ_RED:
-			iq->data_points[r] = data/iq->maxd;
-			break;
-		    case IQ_BLUE:
-			iq->data_points[b] = data/iq->maxd;
-			break;
-
-		    default:
-		    case IQ_GREE:
-			iq->data_points[g] = data/iq->maxd;
-			break;
-		    }
-		}
-
-	}
-	for (i = 0; i < 256*3; i+=3){
-	    // coordinate axes
-	    int xr = i    + 256*128*3;
-	    int yr =128*3 + i*256;
-	    iq->data_points[xr] = 255;
-	    iq->data_points[yr] = 255;
-	    iq->data_points[xr+1] = 255;
-	    iq->data_points[yr+1] = 255;
-	}
-	
-	memset(iq->data,0,256*256*sizeof(uint32_t));
+	pam_data_convert(&iq->pam, iq->maxd);
+	pam_coordinate_axes(&iq->pam, 255,255 ,0);
+	memset(iq->pam.data,0,256*256*sizeof(uint64_t));
 	iq->maxd = 0;
 	iq->pcount = 0;
 	gtk_widget_queue_draw (da);
@@ -234,7 +165,7 @@ on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
 				w,   //width
 				h);  //height
     }
-    image = gdk_pixbuf_new_from_data (iq->data_points,
+    image = gdk_pixbuf_new_from_data (iq->pam.data_points,
 				      GDK_COLORSPACE_RGB,
 				      FALSE, //has_alpha
 				      8,256,256,3*256,destroy_pixdata,iq);
@@ -328,7 +259,7 @@ int main (int argc, char **argv)
     da = gtk_drawing_area_new ();
 
     if ( init_iqdata(&iq,MAXPACKS/10) < 0 ) exit(1);
-    iq.col = color;
+    iq.pam.col = color;
     
     gtk_window_set_default_size (GTK_WINDOW (window), WIDTH, HEIGHT);
     gtk_window_set_title (GTK_WINDOW (window), "DVB IQ");

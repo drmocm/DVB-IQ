@@ -152,8 +152,7 @@ void pam_read_data (int fdin, pamdata *iq)
 
     pam_data_convert(iq, maxd);
     pam_coordinate_axes(iq, 255,255 ,0);
-    memset(iq->data,0,256*256*sizeof(uint64_t));
-	
+    memset(iq->data,0,256*256*sizeof(uint64_t));	
 }
 
 
