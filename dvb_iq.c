@@ -18,6 +18,7 @@
 
 #define WIDTH 640
 #define HEIGHT 720
+#define MAXPACKS 100000
 #define MINDATA ((TS_SIZE-4)/2)
 #define MAXDATA (MAXPACKS*MINDATA)
 
