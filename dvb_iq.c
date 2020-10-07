@@ -92,27 +92,27 @@ gboolean
 draw_callback (GtkWidget *widget, cairo_t *cr, gpointer data)
 {
     gint x, y, width, height;
-  GdkPixbuf *pixbuf;
+    GdkPixbuf *pixbuf;
 
-  iqdata *iq = (iqdata *)data;
+    iqdata *iq = (iqdata *)data;
 
-  GdkWindow *win = gtk_widget_get_window(window);
-  gdk_window_get_geometry (win, &x, &y, &width, &height);
+    GdkWindow *win = gtk_widget_get_window(window);
+    gdk_window_get_geometry (win, &x, &y, &width, &height);
 
-  pixbuf = gdk_pixbuf_new_from_data (iq->pam.data_points,
-				     GDK_COLORSPACE_RGB,
-				     FALSE, //has_alpha
-				     8,256,256,3*256,destroy_pixdata,iq);
-  
-  pixbuf = gdk_pixbuf_scale_simple(pixbuf,
-				   width, height, GDK_INTERP_BILINEAR);
+    pixbuf = gdk_pixbuf_new_from_data (iq->pam.data_points,
+				       GDK_COLORSPACE_RGB,
+				       FALSE, //has_alpha
+				       8,256,256,3*256,destroy_pixdata,iq);
     
-  gdk_cairo_set_source_pixbuf(cr, pixbuf, 0, 0);
-  cairo_paint(cr);
-  
-  g_object_unref(pixbuf);
-
-  return FALSE;
+    pixbuf = gdk_pixbuf_scale_simple(pixbuf,
+				     width, height, GDK_INTERP_BILINEAR);
+    
+    gdk_cairo_set_source_pixbuf(cr, pixbuf, 0, 0);
+    cairo_paint(cr);
+    
+    g_object_unref(pixbuf);
+    
+    return FALSE;
 }
 
 int main (int argc, char **argv)
