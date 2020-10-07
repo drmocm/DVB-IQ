@@ -1,4 +1,3 @@
-
 #include "pam.h"
 #include "ddzap.h"
 
@@ -137,7 +136,7 @@ void pam_read_data (int fdin, pamdata *iq)
     while ((t1 - t0) < DTIME){
 	int re =0;
 	if ((re=read(fdin,(char *)buf, BSIZE)) < 0){
-	    fprintf(stderr,"Error reading data\n");
+	    return;
 	}
 	for (i=0; i < re; i+=TS_SIZE){
 	    for (j=4; j<TS_SIZE; j+=2){
