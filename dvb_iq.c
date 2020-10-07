@@ -101,47 +101,54 @@ void on_value_changed(GtkRange* widget, gpointer data)
     // iq->newn =gtk_range_get_value (GTK_RANGE(widget));
 }
 
-static void *get_pam_data(void *args) {
-    int i;
+static gboolean got_data (gpointer data)
+{
     GdkPixbuf *pixbuf;
-    char *buffer;
-    iqdata *iq = (iqdata *)args;
+    gint x;
+    gint y;
+    gint width;
+    gint height;
 
+    iqdata *iq = (iqdata *)data;
+
+
+    GdkWindow *win = gtk_widget_get_window(window);
+    gdk_window_get_geometry (win, &x, &y, &width, &height);
+    
+    if (iq->width != width || iq->height != height){
+	iq->width = width;
+	iq->height = height;
+	if ( frame && !GTK_IS_WIDGET (frame)) g_object_unref (frame);
+	frame = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
+				FALSE, //has_alpha
+				8,     //bits_per_sample
+				width,   //width
+				height);  //height
+    }
+    pixbuf = gdk_pixbuf_new_from_data (iq->pam.data_points,
+				       GDK_COLORSPACE_RGB,
+				       FALSE, //has_alpha
+				       8,256,256,3*256,destroy_pixdata,iq);
+	
+    
+    gdk_pixbuf_composite (pixbuf,
+			  frame,
+			  0,0,width,height,0,0,width/256.0,height/256.0,
+			  GDK_INTERP_NEAREST,255); 
+    
+    gtk_image_set_from_pixbuf((GtkImage*) image, frame); 
+    return G_SOURCE_REMOVE;
+}
+	
+
+static void *get_pam_data(void *args) {
+    iqdata *iq = (iqdata *)args;
     GError *error = NULL;
 
     while(1) {
-	gint x;
-	gint y;
-	gint width;
-	gint height;
-	gdk_threads_enter();    
 	pam_read_data(iq->fd, &iq->pam);
-	GdkWindow *win = gtk_widget_get_window(window);
-	gdk_window_get_geometry (win, &x, &y, &width, &height);
-
-	if (iq->width != width || iq->height != height){
-	    iq->width = width;
-	    iq->height = height;
-	    if ( frame && !GTK_IS_WIDGET (frame)) g_object_unref (frame);
-	    frame = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
-				    FALSE, //has_alpha
-				    8,     //bits_per_sample
-				    width,   //width
-				    height);  //height
-	}
-	pixbuf = gdk_pixbuf_new_from_data (iq->pam.data_points,
-					   GDK_COLORSPACE_RGB,
-					   FALSE, //has_alpha
-					   8,256,256,3*256,destroy_pixdata,iq);
 	
-
-	gdk_pixbuf_composite (pixbuf,
-			      frame,
-			      0,0,width,height,0,0,width/256.0,height/256.0,
-			      GDK_INTERP_NEAREST,255); 
-
-	gtk_image_set_from_pixbuf((GtkImage*) image, frame); 
-	gdk_threads_leave();
+	gdk_threads_add_idle (got_data, iq);
     }
     exit(0);
 }
