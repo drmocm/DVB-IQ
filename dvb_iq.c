@@ -60,31 +60,14 @@ void destroy_pixdata (guchar *pixels, gpointer data){
 //    memset(iq->data_points,0,256*256*3);
 }
 
+/*
 static gboolean got_data (gpointer data)
 {
-    GdkPixbuf *pixbuf;
-    gint x;
-    gint y;
-    gint width;
-    gint height;
+    gtk_widget_queue_draw(image);
 
-    iqdata *iq = (iqdata *)data;
-    GdkWindow *win = gtk_widget_get_window(window);
-    gdk_window_get_geometry (win, &x, &y, &width, &height);
-    
-    pixbuf = gdk_pixbuf_new_from_data (iq->pam.data_points,
-				       GDK_COLORSPACE_RGB,
-				       FALSE, //has_alpha
-				       8,256,256,3*256,destroy_pixdata,iq);
-
-    pixbuf = gdk_pixbuf_scale_simple(pixbuf,
-				     width, height, GDK_INTERP_BILINEAR);
-    
-    gtk_image_set_from_pixbuf((GtkImage*) image, pixbuf);
-    g_object_unref(pixbuf);
     return G_SOURCE_REMOVE;
 }
-	
+*/	
 
 static void *get_pam_data(void *args) {
     iqdata *iq = (iqdata *)args;
@@ -92,8 +75,9 @@ static void *get_pam_data(void *args) {
 
     while(1) {
 	pam_read_data(iq->fd, &iq->pam);
-	
-	gdk_threads_add_idle (got_data, iq);
+
+	gtk_widget_queue_draw(image);
+	//gdk_threads_add_idle (got_data, iq);
     }
     exit(0);
 }
@@ -102,6 +86,33 @@ static void realize_cb (GtkWidget *widget, gpointer data) {
     /* start the video playing in its own thread */
     pthread_t tid;
     pthread_create(&tid, NULL, get_pam_data, (void *)data);
+}
+
+gboolean
+draw_callback (GtkWidget *widget, cairo_t *cr, gpointer data)
+{
+    gint x, y, width, height;
+  GdkPixbuf *pixbuf;
+
+  iqdata *iq = (iqdata *)data;
+
+  GdkWindow *win = gtk_widget_get_window(window);
+  gdk_window_get_geometry (win, &x, &y, &width, &height);
+
+  pixbuf = gdk_pixbuf_new_from_data (iq->pam.data_points,
+				     GDK_COLORSPACE_RGB,
+				     FALSE, //has_alpha
+				     8,256,256,3*256,destroy_pixdata,iq);
+  
+  pixbuf = gdk_pixbuf_scale_simple(pixbuf,
+				   width, height, GDK_INTERP_BILINEAR);
+    
+  gdk_cairo_set_source_pixbuf(cr, pixbuf, 0, 0);
+  cairo_paint(cr);
+  
+  g_object_unref(pixbuf);
+
+  return FALSE;
 }
 
 int main (int argc, char **argv)
@@ -155,16 +166,15 @@ int main (int argc, char **argv)
     g_signal_connect (window, "destroy", G_CALLBACK (close_window), NULL);
     g_signal_connect (window, "key_press_event", G_CALLBACK (key_function),NULL);
     g_signal_connect (window, "realize", G_CALLBACK (realize_cb), (void *)&iq);   
-
-    image = gtk_image_new();
-    gtk_box_pack_start(GTK_BOX(vbox), image, FALSE, FALSE, 0);
+    image = gtk_drawing_area_new ();
+    g_signal_connect (G_OBJECT (image), "draw",
+		      G_CALLBACK (draw_callback), &iq);
+    gtk_box_pack_start(GTK_BOX(vbox), image, TRUE, TRUE, 0);
 
     gtk_container_add (GTK_CONTAINER (window), vbox);
-    gtk_widget_show (image);
-    
     gtk_widget_show_all (window);
+    
     gtk_main ();
-    if (fd != fileno(stdin)) kill( pid, SIGTERM );
 
     return 0;
 }
