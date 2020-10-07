@@ -18,18 +18,16 @@
 
 #define WIDTH 640
 #define HEIGHT 720
-#define MAXPACKS 100000
-#define MINDATA ((TS_SIZE-4)/2)
-#define MAXDATA (MAXPACKS*MINDATA)
 
 /* window */
-static GtkWidget *window = NULL;
+GtkWidget *window = NULL;
+GtkWidget *image;
 
 /* Current frame */
 static GdkPixbuf *frame;
 
 /* Images */
-static GdkPixbuf *image;
+static GdkPixbuf *gpix;
 
 /* Widgets */
 static GtkWidget *da;
@@ -37,25 +35,16 @@ static GtkWidget *da;
 typedef struct iqdata_
 {
     pamdata pam;
-    int npacks;
-    int pcount;
-    int newn;
+    int fd;
     int width;
     int height;
-    uint64_t maxd;
 } iqdata;
 
-int init_iqdata(iqdata *iq, int npacks)
+int init_iqdata(iqdata *iq)
 {
-    iq->npacks = 0;
-    iq->maxd = 0;
-    iq->pcount = 0;
     iq->width= 0;
     iq->height = 0;
-    if (npacks < 1 || npacks >MAXPACKS) return -1;
     init_pamdata(&iq->pam,1);
-    iq->npacks = npacks;
-    iq->newn = 0;
     return 0;
 }
 
@@ -85,64 +74,6 @@ void destroy_pixdata (guchar *pixels, gpointer data){
 }
 
 
-
-#define READPACK 100
-#define BSIZE (TS_SIZE * READPACK)
-gboolean read_data (GIOChannel *source, GIOCondition condition, gpointer data)
-{
-    GError *error = NULL;	
-    gchar buf[BSIZE];
-    gsize sr=0;
-    int i,j;
-    iqdata *iq = (iqdata *) data;
-    if ( da && !GTK_IS_WIDGET (da)) return TRUE;
-    if (iq->newn){
-	iq->npacks = iq->newn;
-	iq->newn = 0;
-    }
-    g_io_channel_read_chars (source,(char *)buf, BSIZE,
-			     &sr, &error);
-    for (i=0; i < READPACK*TS_SIZE; i+=TS_SIZE){
-	for (j=4; j<TS_SIZE; j+=2){
-	    int ix = buf[i+j]+128;
-	    int qy = 128-buf[i+j+1];
-	    iq->pam.data[ix+256*qy] += 1;
-	    uint64_t c = iq->pam.data[ix+256*qy];
-	    if ( c > iq->maxd) iq->maxd = c;
-	}
-    }
-    
-    iq->pcount += READPACK;
-    if (iq->pcount > iq->npacks){
-	pam_data_convert(&iq->pam, iq->maxd);
-	pam_coordinate_axes(&iq->pam, 255,255 ,0);
-	memset(iq->pam.data,0,256*256*sizeof(uint64_t));
-	iq->maxd = 0;
-	iq->pcount = 0;
-	gtk_widget_queue_draw (da);
-    }
-    return TRUE;
-}
-
-guint start_read_watch(int fd, GIOFunc func, gpointer data) {
-  GError *error = NULL;
-
-  GIOChannel *channel = g_io_channel_unix_new(fd);
-
-  g_io_channel_set_encoding(channel, NULL, &error); // read binary
-  guint id = g_io_add_watch(channel,
-                            G_IO_IN | G_IO_HUP | G_IO_ERR,
-                            func,
-                            data);
-  if(error != NULL){		/* handle potential errors */
-    fprintf(stderr, "g_io_channel_set_encoding failed %s\n",
-	    error->message);
-    exit(1);
-  }
-  g_io_channel_unref(channel);
-  return id;
-}
-
 static gboolean
 on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
 {
@@ -156,28 +87,10 @@ on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
     int w = da.width;
     int h = da.height;
 
-    if (iq->width != w || iq->height != h){
-	iq->width = w;
-	iq->height = h;
-	if ( frame && !GTK_IS_WIDGET (frame)) g_object_unref (frame);
-	frame = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
-				FALSE, //has_alpha
-				8,     //bits_per_sample
-				w,   //width
-				h);  //height
-    }
-    image = gdk_pixbuf_new_from_data (iq->pam.data_points,
+    gpix = gdk_pixbuf_new_from_data (iq->pam.data_points,
 				      GDK_COLORSPACE_RGB,
 				      FALSE, //has_alpha
 				      8,256,256,3*256,destroy_pixdata,iq);
-    gdk_pixbuf_composite (image,
-			  frame,
-			  0,0,w,h,0,0,w/256.0,h/256.0,
-			  GDK_INTERP_NEAREST,255); 
-    
-    gdk_cairo_set_source_pixbuf (cr, frame, 0, 0);
-    cairo_paint (cr);
-    g_object_unref(image);
     return FALSE;
 }
 
@@ -185,9 +98,59 @@ on_draw (GtkWidget *widget, cairo_t *cr, gpointer data)
 void on_value_changed(GtkRange* widget, gpointer data)
 {
     iqdata *iq = (iqdata *) data;
-    iq->newn =gtk_range_get_value (GTK_RANGE(widget));
+    // iq->newn =gtk_range_get_value (GTK_RANGE(widget));
 }
 
+static void *get_pam_data(void *args) {
+    int i;
+    GdkPixbuf *pixbuf;
+    char *buffer;
+    iqdata *iq = (iqdata *)args;
+
+    GError *error = NULL;
+
+    while(1) {
+	gint x;
+	gint y;
+	gint width;
+	gint height;
+	gdk_threads_enter();    
+	pam_read_data(iq->fd, &iq->pam);
+	GdkWindow *win = gtk_widget_get_window(window);
+	gdk_window_get_geometry (win, &x, &y, &width, &height);
+
+	if (iq->width != width || iq->height != height){
+	    iq->width = width;
+	    iq->height = height;
+	    if ( frame && !GTK_IS_WIDGET (frame)) g_object_unref (frame);
+	    frame = gdk_pixbuf_new (GDK_COLORSPACE_RGB,
+				    FALSE, //has_alpha
+				    8,     //bits_per_sample
+				    width,   //width
+				    height);  //height
+	}
+	pixbuf = gdk_pixbuf_new_from_data (iq->pam.data_points,
+					   GDK_COLORSPACE_RGB,
+					   FALSE, //has_alpha
+					   8,256,256,3*256,destroy_pixdata,iq);
+	
+
+	gdk_pixbuf_composite (pixbuf,
+			      frame,
+			      0,0,width,height,0,0,width/256.0,height/256.0,
+			      GDK_INTERP_NEAREST,255); 
+
+	gtk_image_set_from_pixbuf((GtkImage*) image, frame); 
+	gdk_threads_leave();
+    }
+    exit(0);
+}
+
+static void realize_cb (GtkWidget *widget, gpointer data) {
+    /* start the video playing in its own thread */
+    pthread_t tid;
+    pthread_create(&tid, NULL, get_pam_data, (void *)data);
+}
 
 int main (int argc, char **argv)
 {
@@ -196,7 +159,6 @@ int main (int argc, char **argv)
     GError *error=NULL;
     iqdata iq;
     char filename[25];
-    int filedes[2];
     int fd;
     int color = 0;
     struct dddvb_fe *fe=NULL;
@@ -221,57 +183,33 @@ int main (int argc, char **argv)
     if ((fe = ddzap(argc+2, newargs))){
 	snprintf(filename,25,
 		 "/dev/dvb/adapter%d/dvr%d",fe->anum, fe->fnum);
-	if (pipe(filedes) == -1) {
-	    perror("pipe");
-	    exit(1);
-	}
+	fprintf(stderr,"opening %s\n", filename);
 	
-	pid = fork();
-	if (pid == -1) {
-	    perror("fork");
-	    exit(1);
-	} else if (pid == 0) {
-	    while ((dup2(filedes[1], STDOUT_FILENO) == -1)
-		   && (errno == EINTR)) {}
-	    close(filedes[1]);
-	    close(filedes[0]);
-#define BUFFSIZE (1024*188)
-	    uint8_t buf[BUFFSIZE];
-	    fprintf(stderr,"opening %s\n", filename);
-	    
-	    if ((fd = open(filename ,O_RDONLY)) < 0){
-		fprintf(stderr,"Error opening input file: %s\n",filename);
-	    }
-	    while(1){
-		int r,w;
-		r=read(fd,buf,BUFFSIZE);
-		w=write(fileno(stdout),buf,r);
-	    }
-	    _exit(1);
+	if ((fd = open(filename ,O_RDONLY)) < 0){
+	    fprintf(stderr,"Error opening input file: %s\n",filename);
 	}
-	close(filedes[1]);
-	fd = filedes[0];
     } else fd = fileno(stdin);
 
     window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
     vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-    da = gtk_drawing_area_new ();
 
-    if ( init_iqdata(&iq,MAXPACKS/10) < 0 ) exit(1);
+    if ( init_iqdata(&iq) < 0 ) exit(1);
     iq.pam.col = color;
+    iq.fd = fd;
     
     gtk_window_set_default_size (GTK_WINDOW (window), WIDTH, HEIGHT);
     gtk_window_set_title (GTK_WINDOW (window), "DVB IQ");
     g_signal_connect (window, "destroy", G_CALLBACK (close_window), NULL);
     g_signal_connect (window, "key_press_event", G_CALLBACK (key_function),NULL);
+    g_signal_connect (window, "realize", G_CALLBACK (realize_cb), (void *)&iq);   
 
+    /*
     g_signal_connect (G_OBJECT (da),"draw", G_CALLBACK (on_draw), (gpointer*)&iq);
     npackr = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL,
 				      MAXPACKS/20,
 				      MAXPACKS,
 				      MAXPACKS/10);
 
-    
     start_read_watch(fd, read_data, &iq);
 
     gtk_scale_set_draw_value(GTK_SCALE(npackr), TRUE);
@@ -279,9 +217,15 @@ int main (int argc, char **argv)
 		      G_CALLBACK(on_value_changed), &iq);
     gtk_range_set_value(GTK_RANGE(npackr),iq.npacks);
     gtk_box_pack_start(GTK_BOX(vbox), npackr, FALSE, FALSE, 0);
+
     gtk_box_pack_start(GTK_BOX(vbox), da, TRUE, TRUE, 0);
     gtk_container_add (GTK_CONTAINER (window), vbox);
+    */
+    image = gtk_image_new();
+    gtk_widget_show (image);
 
+    gtk_container_add (GTK_CONTAINER (window), image);
+        
     
     gtk_widget_show_all (window);
     gtk_main ();

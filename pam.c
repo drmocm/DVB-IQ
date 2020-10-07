@@ -143,8 +143,8 @@ void pam_read_data (int fdin, pamdata *iq)
 	    for (j=4; j<TS_SIZE; j+=2){
 		uint8_t ix = buf[i+j]+128;
 		uint8_t qy = 128-buf[i+j+1];
-		iq->data[ix+256*qy] += 1;
-		uint64_t c = iq->data[ix+256*qy];
+		iq->data[ix|(qy<<8)] += 1;
+		uint64_t c = iq->data[ix|(qy<<8)];
 		if ( c > maxd) maxd = c;
 	    }
 	}
