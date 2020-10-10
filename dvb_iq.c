@@ -31,7 +31,7 @@ typedef struct iqdata_
 
 int init_iqdata(iqdata *iq)
 {
-    init_pamdata(&iq->pam,1);
+    init_pamdata(&iq->pam,1,BIT8_IQ);
     return 0;
 }
 

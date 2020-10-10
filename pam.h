@@ -17,14 +17,17 @@
 
 enum { IQ_RED=1, IQ_GREE, IQ_BLUE , IQ_EVIL, IQ_LOG_RED, IQ_LOG_GREEN, IQ_LOG_BLUE , IQ_LOG_EVIL , IQ_TEST, };
 
+enum { BIT8_IQ, BIT16_IQ,};
+
 typedef struct pamdata_
 {
     unsigned char *data_points;
     uint64_t *data;
     int col;
+    int type;
 } pamdata;
 
-int init_pamdata(pamdata *iq,int col);
+int init_pamdata(pamdata *iq,int col, int type);
 void pam_read_data (int fdin, pamdata *iq);
 void pam_write (int fdout, pamdata *iq);
 void pam_coordinate_axes(pamdata *iq, unsigned char r,

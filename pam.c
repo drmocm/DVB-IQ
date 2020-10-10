@@ -1,23 +1,31 @@
 #include "pam.h"
 #include "ddzap.h"
 
-int init_pamdata(pamdata *iq,int color)
+int init_pamdata(pamdata *iq, int color, int type)
 {
-    iq->col = 0;
-    if (!( iq->data=(uint64_t *) malloc(sizeof(uint64_t) *256*256)))
-    {
-        fprintf(stderr,"not enough memory\n");
-        return -1;
+
+    switch (type){
+    case BIT16_IQ:
+
+	break;
+    default:
+    case BIT8_IQ:
+	if (!( iq->data=(uint64_t *) malloc(sizeof(uint64_t) *256*256)))
+	{
+	    fprintf(stderr,"not enough memory\n");
+	    return -1;
+	}
+	memset(iq->data,0,256*256*sizeof(uint64_t));
+	if (!( iq->data_points=(unsigned char *) malloc(sizeof(unsigned char) *
+							256*256*3)))
+	{
+	    fprintf(stderr,"not enough memory\n");
+	    return -1;
+	}
+	memset(iq->data_points,0,256*256*3*sizeof(char));
     }
-    memset(iq->data,0,256*256*sizeof(uint64_t));
-    if (!( iq->data_points=(unsigned char *) malloc(sizeof(unsigned char) *
-					     256*256*3)))
-    {
-        fprintf(stderr,"not enough memory\n");
-        return -1;
-    }
-    memset(iq->data_points,0,256*256*3*sizeof(char));
     iq->col = color;
+    iq->type = type;
     return 0;
 }
 
@@ -135,17 +143,26 @@ void pam_read_data (int fdin, pamdata *iq)
 
     while ((t1 - t0) < DTIME){
 	int re =0;
-	if ((re=read(fdin,(char *)buf, BSIZE)) < 0){
-	    return;
-	}
-	for (i=0; i < re; i+=TS_SIZE){
-	    for (j=4; j<TS_SIZE; j+=2){
-		uint8_t ix = buf[i+j]+128;
-		uint8_t qy = 128-buf[i+j+1];
-		iq->data[ix|(qy<<8)] += 1;
-		uint64_t c = iq->data[ix|(qy<<8)];
-		if ( c > maxd) maxd = c;
-	    }
+
+	switch (iq->type){
+	    case BIT16_IQ:
+		break;
+		
+	    default:
+	    case BIT8_IQ:
+		if ((re=read(fdin,(char *)buf, BSIZE)) < 0){
+		    return;
+		}
+		for (i=0; i < re; i+=TS_SIZE){
+		    for (j=4; j<TS_SIZE; j+=2){
+			uint8_t ix = buf[i+j]+128;
+			uint8_t qy = 128-buf[i+j+1];
+			iq->data[ix|(qy<<8)] += 1;
+			uint64_t c = iq->data[ix|(qy<<8)];
+			if ( c > maxd) maxd = c;
+		    }
+		}
+		break;
 	}
 	t1 = getutime();
     }

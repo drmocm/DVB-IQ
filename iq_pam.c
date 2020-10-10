@@ -12,6 +12,7 @@ int main (int argc, char **argv)
     int color = 0;
     struct dddvb_fe *fe=NULL;
     pid_t pid=0;
+    int type = BIT8_IQ;
 
     if (argc > 3 ){
 	char *newargs[argc+2];
@@ -33,7 +34,7 @@ int main (int argc, char **argv)
 
 	fd = fileno(stdin);
     }
-    if ( init_pamdata(&iq) < 0 ) exit(1);
+    if ( init_pamdata(&iq,color,type) < 0 ) exit(1);
     iq.col = color;
 
     while (1){
