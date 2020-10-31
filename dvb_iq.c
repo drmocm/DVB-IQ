@@ -18,11 +18,24 @@
 
 #define WIDTH 640
 #define HEIGHT 720
-
+#define NCOL 8
 /* window */
 GtkWidget *window = NULL;
 GtkWidget *image;
 GtkWidget *shot_button;
+GtkWidget *cscale;
+GtkWidget *rbutton;
+
+char *colors[]={"r","g","b","rgb","lr","lg","lb","lrgb"};
+
+
+int get_col(char *c){
+    int i=1;
+    while (i<NCOL+1 && strcmp(c,colors[i-1])){
+	i++;
+    }
+    return i;
+}
 
 typedef struct iqdata_
 {
@@ -31,6 +44,12 @@ typedef struct iqdata_
     int save;
     int shot;
 } iqdata;
+
+typedef struct radb_
+{
+    iqdata *iq;
+    char *col;
+} radb;
 
 int init_iqdata(iqdata *iq)
 {
@@ -53,7 +72,6 @@ void shot_callback (GtkWidget *widget, gpointer *data)
     if (!iq->save) iq->save=1;
     
 }
-
 
 static gboolean key_function (GtkWidget *widget, GdkEventKey *event, gpointer data) {
     switch (event->keyval){
@@ -136,10 +154,57 @@ draw_callback (GtkWidget *widget, cairo_t *cr, gpointer data)
     return FALSE;
 }
 
+void RadioEvent (GtkWidget *widget, gpointer *data)
+{
+    radb *r = (radb *)data;
+    r->iq->pam.col = get_col(r->col);
+//    g_print ("radio event: %s %d\n",r->col,get_col(r->col));
+}
+
+GtkWidget *CreateRadio (GtkWidget *box, GSList **group, char *szLabel)
+{
+    GtkWidget *radio;
+  
+    /* --- Get the radio button --- */
+    radio = gtk_radio_button_new_with_label (*group, szLabel);
+
+    *group = gtk_radio_button_get_group (GTK_RADIO_BUTTON (radio));
+
+    /* --- Pack the radio button into the vertical box (box).  --- */
+    gtk_box_pack_start (GTK_BOX (box), radio, FALSE, FALSE, 10);
+
+    /* --- Show the widget --- */
+    gtk_widget_show (radio);
+
+    return (radio);
+}
+
+GtkWidget *make_radio_buttons(iqdata *iq, GtkWidget *hbox)
+{
+    GtkWidget *radio = NULL;
+    GSList *group = NULL;
+    radb *r;
+
+    for (int i=1; i<NCOL+1; i++){
+	
+	radio = CreateRadio (hbox, &group, colors[i-1] );
+	r = (radb *) malloc(sizeof(radb));
+	r->iq = iq;
+	r->col = colors[i-1];
+	g_signal_connect (G_OBJECT (radio), "clicked",
+			  G_CALLBACK (RadioEvent), (void *)r);
+	if (i == iq->pam.col)
+	    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(radio),TRUE);
+    }
+    
+    return radio;
+}
+
 int main (int argc, char **argv)
 {
     GtkWidget *npackr;
     GtkWidget *vbox;
+    GtkWidget *hbox;
     GError *error=NULL;
     iqdata iq;
     char filename[25];
@@ -175,7 +240,9 @@ int main (int argc, char **argv)
     } else fd = fileno(stdin);
 
     window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
+    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+    hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+
     if ( init_iqdata(&iq) < 0 ) exit(1);
     iq.pam.col = color;
     iq.fd = fd;
@@ -188,7 +255,11 @@ int main (int argc, char **argv)
     g_signal_connect (window, "destroy", G_CALLBACK (close_window), NULL);
     g_signal_connect (window, "key_press_event", G_CALLBACK (key_function),NULL);
     g_signal_connect (window, "realize", G_CALLBACK (realize_cb), (void *)&iq);   
+    rbutton = make_radio_buttons(&iq,hbox);
 
+    gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
+
+    
     gtk_box_set_homogeneous (GTK_BOX(vbox),FALSE);
 
     image = gtk_drawing_area_new ();
