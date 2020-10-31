@@ -22,11 +22,13 @@
 /* window */
 GtkWidget *window = NULL;
 GtkWidget *image;
+GtkWidget *shot_button;
 
 typedef struct iqdata_
 {
     pamdata pam;
     int fd;
+    int save;
 } iqdata;
 
 int init_iqdata(iqdata *iq)
@@ -41,6 +43,16 @@ close_window (void)
 {
     gtk_main_quit();
 }
+
+/* our usual callback function */
+void shot_callback (GtkWidget *widget, gpointer *data)
+{
+    iqdata *iq = (iqdata *)data;
+
+    if (!iq->save) iq->save=1;
+    
+}
+
 
 static gboolean key_function (GtkWidget *widget, GdkEventKey *event, gpointer data) {
     switch (event->keyval){
@@ -96,9 +108,8 @@ draw_callback (GtkWidget *widget, cairo_t *cr, gpointer data)
 
     iqdata *iq = (iqdata *)data;
 
-    GdkWindow *win = gtk_widget_get_window(window);
-    gdk_window_get_geometry (win, &x, &y, &width, &height);
-
+    width = gtk_widget_get_allocated_width (image);
+    height = gtk_widget_get_allocated_height (image);
     pixbuf = gdk_pixbuf_new_from_data (iq->pam.data_points,
 				       GDK_COLORSPACE_RGB,
 				       FALSE, //has_alpha
@@ -109,7 +120,12 @@ draw_callback (GtkWidget *widget, cairo_t *cr, gpointer data)
     
     gdk_cairo_set_source_pixbuf(cr, pixbuf, 0, 0);
     cairo_paint(cr);
-    
+
+    if (iq->save){
+	gdk_pixbuf_save (pixbuf, "IQ-Screenshot.png","png",NULL,NULL);
+	iq->save = 0;
+	g_print ("Screenshot save as IQ-Screenshot.png\n");
+    }
     g_object_unref(pixbuf);
     
     return FALSE;
@@ -154,11 +170,11 @@ int main (int argc, char **argv)
     } else fd = fileno(stdin);
 
     window = gtk_window_new (GTK_WINDOW_TOPLEVEL);
-    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-
+    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
     if ( init_iqdata(&iq) < 0 ) exit(1);
     iq.pam.col = color;
     iq.fd = fd;
+    iq.save = 0;
     
     gtk_window_set_default_size (GTK_WINDOW (window), WIDTH, HEIGHT);
     gtk_window_set_title (GTK_WINDOW (window), "DVB IQ");
@@ -166,10 +182,18 @@ int main (int argc, char **argv)
     g_signal_connect (window, "destroy", G_CALLBACK (close_window), NULL);
     g_signal_connect (window, "key_press_event", G_CALLBACK (key_function),NULL);
     g_signal_connect (window, "realize", G_CALLBACK (realize_cb), (void *)&iq);   
+
+    gtk_box_set_homogeneous (GTK_BOX(vbox),FALSE);
+
     image = gtk_drawing_area_new ();
     g_signal_connect (G_OBJECT (image), "draw",
 		      G_CALLBACK (draw_callback), &iq);
     gtk_box_pack_start(GTK_BOX(vbox), image, TRUE, TRUE, 0);
+
+    shot_button = gtk_button_new_with_label ("Screenshot");
+    g_signal_connect (G_OBJECT (shot_button), "clicked",
+                        G_CALLBACK(shot_callback), (gpointer) &iq);
+    gtk_box_pack_start(GTK_BOX(vbox), shot_button, FALSE, FALSE, 0);
 
     gtk_container_add (GTK_CONTAINER (window), vbox);
     gtk_widget_show_all (window);
