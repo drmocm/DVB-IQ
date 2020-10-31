@@ -29,6 +29,7 @@ typedef struct iqdata_
     pamdata pam;
     int fd;
     int save;
+    int shot;
 } iqdata;
 
 int init_iqdata(iqdata *iq)
@@ -122,9 +123,13 @@ draw_callback (GtkWidget *widget, cairo_t *cr, gpointer data)
     cairo_paint(cr);
 
     if (iq->save){
-	gdk_pixbuf_save (pixbuf, "IQ-Screenshot.png","png",NULL,NULL);
+	char filename[25];
+	sprintf(filename,"IQ-Screenshot%03d.png",iq->shot);
+	gdk_pixbuf_save (pixbuf, filename,"png",NULL,NULL);
+	g_print ("Screenshot save as %s\n",filename);
+	iq->shot++;
+	if (iq->shot >= 1000) iq->shot=0;
 	iq->save = 0;
-	g_print ("Screenshot save as IQ-Screenshot.png\n");
     }
     g_object_unref(pixbuf);
     
@@ -175,6 +180,7 @@ int main (int argc, char **argv)
     iq.pam.col = color;
     iq.fd = fd;
     iq.save = 0;
+    iq.shot = 0;
     
     gtk_window_set_default_size (GTK_WINDOW (window), WIDTH, HEIGHT);
     gtk_window_set_title (GTK_WINDOW (window), "DVB IQ");
