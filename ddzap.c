@@ -13,6 +13,199 @@ static uint32_t root2gold(uint32_t root)
 	return 0xffffffff;
 }
 
+struct dddvb_fe *set_tune_dddvb( struct dddvb *dd,
+				 uint32_t bandwidth,
+				 uint32_t frequency,
+				 uint32_t symbol_rate,
+				 uint32_t pol,
+				 uint32_t id,
+				 uint32_t ssi,
+				 uint32_t num,
+				 uint32_t source,
+				 uint32_t mtype,
+				 enum fe_code_rate fec,
+				 enum fe_delivery_system delsys)
+{
+    struct dddvb_fe *fe;
+    struct dddvb_params p;
+
+    switch (delsys) {
+    case SYS_DVBC_ANNEX_A:
+	if (!symbol_rate)
+	    symbol_rate = 6900000;
+	break;
+    default:
+	break;
+    }
+
+    if (num != DDDVB_UNDEF)
+	fe = dddvb_fe_alloc_num(dd, delsys, num);
+    else
+	fe = dddvb_fe_alloc(dd, delsys);
+    if (!fe) {
+	return NULL;
+    }
+    dddvb_param_init(&p);
+    dddvb_set_mtype(&p, mtype);
+    dddvb_set_frequency(&p, frequency);
+    dddvb_set_src(&p, source);
+    dddvb_set_bandwidth(&p, bandwidth);
+    dddvb_set_symbol_rate(&p, symbol_rate);
+    dddvb_set_polarization(&p, pol);
+    dddvb_set_delsys(&p, delsys);
+    dddvb_set_id(&p, id);
+    dddvb_set_ssi(&p, ssi);
+    dddvb_dvb_tune(fe, &p);
+
+    return fe;    
+}
+
+
+int parse_args(int argc, char **argv,
+	       uint32_t *bandwidth,
+	       uint32_t *frequency,
+	       uint32_t *symbol_rate,
+	       uint32_t *pol,
+	       uint32_t *id,
+	       uint32_t *ssi,
+	       uint32_t *num,
+	       uint32_t *source,
+	       uint32_t *mtype,
+	       enum fe_code_rate *fec,
+	       enum fe_delivery_system *delsys,
+	       char **config,
+	       uint32_t *verbosity,
+	       int *color)
+
+{
+    int outt = 0;
+    while (1) {
+	int cur_optind = optind ? optind : 1;
+	int option_index = 0;
+	int c;
+	static struct option long_options[] = {
+	    {"config", required_argument, 0, 'c'},
+	    {"frequency", required_argument, 0, 'f'},
+	    {"bandwidth", required_argument, 0, 'b'},
+	    {"symbolrate", required_argument, 0, 's'},
+	    {"source", required_argument, 0, 'l'},
+	    {"delsys", required_argument, 0, 'd'},
+	    {"id", required_argument, 0, 'i'},
+	    {"ssi", required_argument, 0, 'g'},
+	    {"gold", required_argument, 0, 'g'},
+	    {"root", required_argument, 0, 'r'},
+	    {"num", required_argument, 0, 'n'},
+	    {"mtype", required_argument, 0, 'm'},
+	    {"verbosity", required_argument, 0, 'v'},
+	    {"open_dvr", no_argument, 0, 'o'},
+	    {"color_scheme", required_argument , 0, 'q'},
+	    {"help", no_argument , 0, 'h'},
+	    {0, 0, 0, 0}
+	};
+	c = getopt_long(argc, argv, 
+			"c:i:f:s:d:p:hg:r:n:b:l:v:m:o:q:",
+			long_options, &option_index);
+	if (c==-1)
+	    break;
+	
+	switch (c) {
+	case 'q':
+	    *color = strtoul(optarg, NULL, 0);
+	    break;
+	case 'o':
+	    outt = strtoul(optarg, NULL, 0);
+	    outt++;
+	    printf("outt %d\n",outt);
+	    break;
+	case 'c':
+	    *config = strdup(optarg);
+	    break;
+	case 'f':
+	    *frequency = strtoul(optarg, NULL, 0);
+	    break;
+	case 'b':
+	    *bandwidth = strtoul(optarg, NULL, 0);
+	    break;
+	case 's':
+	    *symbol_rate = strtoul(optarg, NULL, 0);
+	    break;
+	case 'l':
+	    *source = strtoul(optarg, NULL, 0);
+	    break;
+	case 'v':
+	    *verbosity = strtoul(optarg, NULL, 0);
+	    break;
+	case 'g':
+	    *ssi = strtoul(optarg, NULL, 0);
+	    break;
+	case 'r':
+	    *ssi = root2gold(strtoul(optarg, NULL, 0));
+	    break;
+	case 'i':
+	    *id = strtoul(optarg, NULL, 0);
+	    break;
+	case 'n':
+	    *num = strtoul(optarg, NULL, 0);
+	    break;
+	case 'm':
+	    if (!strcmp(optarg, "16APSK"))
+		*mtype = APSK_16;
+	    if (!strcmp(optarg, "32APSK"))
+		*mtype = APSK_32;
+	    if (!strcmp(optarg, "64APSK"))
+		*mtype = APSK_64;
+	    if (!strcmp(optarg, "128APSK"))
+		*mtype = APSK_128;
+	    if (!strcmp(optarg, "256APSK"))
+		*mtype = APSK_256;
+	    if (*mtype == DDDVB_UNDEF)
+		printf("unknown mtype %s\n", optarg);
+	    break;
+	case 'd':
+	    if (!strcmp(optarg, "C"))
+		*delsys = SYS_DVBC_ANNEX_A;
+	    if (!strcmp(optarg, "DVBC"))
+		*delsys = SYS_DVBC_ANNEX_A;
+	    if (!strcmp(optarg, "S"))
+		*delsys = SYS_DVBS;
+	    if (!strcmp(optarg, "DVBS"))
+		*delsys = SYS_DVBS;
+	    if (!strcmp(optarg, "S2"))
+		*delsys = SYS_DVBS2;
+	    if (!strcmp(optarg, "DVBS2"))
+		*delsys = SYS_DVBS2;
+	    if (!strcmp(optarg, "T"))
+		*delsys = SYS_DVBT;
+	    if (!strcmp(optarg, "DVBT"))
+		*delsys = SYS_DVBT;
+	    if (!strcmp(optarg, "T2"))
+		*delsys = SYS_DVBT2;
+	    if (!strcmp(optarg, "DVBT2"))
+		*delsys = SYS_DVBT2;
+	    if (!strcmp(optarg, "J83B"))
+		*delsys = SYS_DVBC_ANNEX_B;
+	    if (!strcmp(optarg, "ISDBC"))
+		*delsys = SYS_ISDBC;
+	    if (!strcmp(optarg, "ISDBT"))
+		*delsys = SYS_ISDBT;
+	    break;
+	case 'p':
+	    if (!strcmp(optarg, "h"))
+		*pol = 1;
+	    if (!strcmp(optarg, "v"))
+		*pol = 0;
+	    break;
+	case 'h':
+	    return -1;
+	default:
+	    break;
+	    
+	}
+    }
+    return outt;
+}
+
+
 struct dddvb_fe *ddzap(int argc, char **argv)
 {
         char filename[25];
@@ -33,153 +226,51 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 	int odvr = 0;
 	FILE *fout = stdout;
 	if (argc < 2) return 0;
-	while (1) {
-		int cur_optind = optind ? optind : 1;
-                int option_index = 0;
-		int c;
-                static struct option long_options[] = {
-			{"config", required_argument, 0, 'c'},
-			{"frequency", required_argument, 0, 'f'},
-			{"bandwidth", required_argument, 0, 'b'},
-			{"symbolrate", required_argument, 0, 's'},
-			{"source", required_argument, 0, 'l'},
-			{"delsys", required_argument, 0, 'd'},
-			{"id", required_argument, 0, 'i'},
-			{"ssi", required_argument, 0, 'g'},
-			{"gold", required_argument, 0, 'g'},
-			{"root", required_argument, 0, 'r'},
-			{"num", required_argument, 0, 'n'},
-			{"mtype", required_argument, 0, 'm'},
-			{"verbosity", required_argument, 0, 'v'},
-			{"open_dvr", no_argument, 0, 'o'},
-			{"color_scheme", required_argument , 0, 'q'},
-			{"help", no_argument , 0, 'h'},
-			{0, 0, 0, 0}
-		};
-                c = getopt_long(argc, argv, 
-				"c:i:f:s:d:p:hg:r:n:b:l:v:m:o:q:",
-				long_options, &option_index);
-		if (c==-1)
- 			break;
-		
-		switch (c) {
-		case 'q':
-		        color = strtoul(optarg, NULL, 0);
-			break;
-		case 'o':
-		        outt = strtoul(optarg, NULL, 0);
-		        fout = stderr;
-		        fprintf(fout,"Reading from dvr %d\n", outt);
-		        odvr = 1;
-		        break;
-		case 'c':
-		        config = strdup(optarg);
-			break;
-		case 'f':
-			frequency = strtoul(optarg, NULL, 0);
-			break;
-		case 'b':
-			bandwidth = strtoul(optarg, NULL, 0);
-			break;
-		case 's':
-			symbol_rate = strtoul(optarg, NULL, 0);
-			break;
-		case 'l':
-			source = strtoul(optarg, NULL, 0);
-			break;
-		case 'v':
-			verbosity = strtoul(optarg, NULL, 0);
-			break;
-		case 'g':
-			ssi = strtoul(optarg, NULL, 0);
-			break;
-		case 'r':
-			ssi = root2gold(strtoul(optarg, NULL, 0));
-			break;
-		case 'i':
-			id = strtoul(optarg, NULL, 0);
-			break;
-		case 'n':
-			num = strtoul(optarg, NULL, 0);
-			break;
-		case 'm':
-			if (!strcmp(optarg, "16APSK"))
-				mtype = APSK_16;
-			if (!strcmp(optarg, "32APSK"))
-				mtype = APSK_32;
-			if (!strcmp(optarg, "64APSK"))
-				mtype = APSK_64;
-			if (!strcmp(optarg, "128APSK"))
-				mtype = APSK_128;
-			if (!strcmp(optarg, "256APSK"))
-				mtype = APSK_256;
-			if (mtype == DDDVB_UNDEF)
-				printf("unknown mtype %s\n", optarg);
-			break;
-		case 'd':
-			if (!strcmp(optarg, "C"))
-				delsys = SYS_DVBC_ANNEX_A;
-			if (!strcmp(optarg, "DVBC"))
-				delsys = SYS_DVBC_ANNEX_A;
-			if (!strcmp(optarg, "S"))
-				delsys = SYS_DVBS;
-			if (!strcmp(optarg, "DVBS"))
-				delsys = SYS_DVBS;
-			if (!strcmp(optarg, "S2"))
-				delsys = SYS_DVBS2;
-			if (!strcmp(optarg, "DVBS2"))
-				delsys = SYS_DVBS2;
-			if (!strcmp(optarg, "T"))
-				delsys = SYS_DVBT;
-			if (!strcmp(optarg, "DVBT"))
-				delsys = SYS_DVBT;
-			if (!strcmp(optarg, "T2"))
-				delsys = SYS_DVBT2;
-			if (!strcmp(optarg, "DVBT2"))
-				delsys = SYS_DVBT2;
-			if (!strcmp(optarg, "J83B"))
-				delsys = SYS_DVBC_ANNEX_B;
-			if (!strcmp(optarg, "ISDBC"))
-				delsys = SYS_ISDBC;
-			if (!strcmp(optarg, "ISDBT"))
-				delsys = SYS_ISDBT;
-			break;
-		case 'p':
-			if (!strcmp(optarg, "h"))
-				pol = 1;
-			if (!strcmp(optarg, "v"))
-				pol = 0;
-			break;
-		case 'h':
-		    fprintf(fout,"ddzap [-d delivery_system] [-p polarity] [-c config_dir] [-f frequency(Hz)]\n"
-			       "      [-b bandwidth(Hz)] [-s symbol_rate(Hz)]\n"
-			       "      [-g gold_code] [-r root_code] [-i id] [-n device_num]\n"
-			       "      [-o (write dvr to stdout)]\n"
-			       "\n"
-			       "      delivery_system = C,S,S2,T,T2,J83B,ISDBC,ISDBT\n"
-			       "      polarity        = h,v\n"
-			       "\n");
-			return NULL;
-		default:
-			break;
-			
-		}
-	}
-	if (optind < argc) {
-	    fprintf(fout,"Warning: unused arguments\n");
-	}
 
+	outt = parse_args(argc, argv,
+			  &bandwidth,
+			  &frequency,
+			  &symbol_rate,
+			  &pol,
+			  &id,
+			  &ssi,
+			  &num,
+			  &source,
+			  &mtype,
+			  &fec,
+			  &delsys,
+			  &config,
+			  &verbosity,
+			  &color
+	    );
+	    
 	if (delsys == ~0) {
 	    fprintf(fout,"You have to choose a delivery system: -d (C|S|S2|T|T2)\n");
-		return NULL;
+	    return NULL;
 	}
-	switch (delsys) {
-	case SYS_DVBC_ANNEX_A:
-		if (!symbol_rate)
-			symbol_rate = 6900000;
-		break;
-	default:
-	    break;
+
+	
+	if (outt < 0){
+	    fprintf(fout,"ddzap [-d delivery_system] [-p polarity] [-c config_dir] [-f frequency(Hz)]\n"
+		    "      [-b bandwidth(Hz)] [-s symbol_rate(Hz)]\n"
+		    "      [-g gold_code] [-r root_code] [-i id] [-n device_num]\n"
+		    "      [-o (write dvr to stdout)]\n"
+		    "\n"
+		    "      delivery_system = C,S,S2,T,T2,J83B,ISDBC,ISDBT\n"
+		    "      polarity        = h,v\n"
+		    "\n");
+	    return NULL;
+	}
+
+	if (outt){
+	    outt--;
+	    fout = stderr;
+	    fprintf(fout,"Reading from dvr %d\n", outt);
+	    odvr = 1;
+	}
+
+	if (optind < argc) {
+	    fprintf(fout,"Warning: unused arguments\n");
 	}
 
 	dd = dddvb_init(config, verbosity);
@@ -189,33 +280,23 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 	}
 	fprintf(fout,"dvbnum = %u\n", dd->dvbfe_num);
 
-	if (num != DDDVB_UNDEF)
-		fe = dddvb_fe_alloc_num(dd, delsys, num);
-	else
-		fe = dddvb_fe_alloc(dd, delsys);
+	fe = set_tune_dddvb( dd,
+			     bandwidth,
+			     frequency,
+			     symbol_rate,
+			     pol,
+			     id,
+			     ssi,
+			     num,
+			     source,
+			     mtype,
+			     fec,
+			     delsys);
 	if (!fe) {
 	    fprintf(fout,"dddvb_fe_alloc failed\n");
 		return NULL;
 	}
-	dddvb_param_init(&p);
-	dddvb_set_mtype(&p, mtype);
-	dddvb_set_frequency(&p, frequency);
-	dddvb_set_src(&p, source);
-	dddvb_set_bandwidth(&p, bandwidth);
-	dddvb_set_symbol_rate(&p, symbol_rate);
-	dddvb_set_polarization(&p, pol);
-	dddvb_set_delsys(&p, delsys);
-	dddvb_set_id(&p, id);
-	dddvb_set_ssi(&p, ssi);
-	dddvb_dvb_tune(fe, &p);
-#if 0
-	{
-		uint8_t ts[188];
-		
-		dddvb_ca_write(dd, 0, ts, 188);
 
-	}
-#endif
 	if (!odvr){
 		while (1) {
 			fe_status_t stat;
