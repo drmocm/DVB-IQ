@@ -27,8 +27,6 @@ typedef struct pamdata_
     int type;
     int width;
     int height;
-    int stop;
-    int stopped;
 } pamdata;
 
 int init_pamdata(pamdata *iq, int color, int type, int width, int height);

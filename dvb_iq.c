@@ -77,8 +77,8 @@ static gboolean key_function (GtkWidget *widget, GdkEventKey *event, gpointer da
     switch (event->keyval){
     case GDK_KEY_q: 
     case GDK_KEY_Escape:
-	gtk_widget_destroy(widget);
 	gtk_main_quit();
+	exit(0);
 	return TRUE;
 	break;
     default:

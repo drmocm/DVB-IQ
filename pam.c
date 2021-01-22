@@ -1,22 +1,9 @@
 #include "pam.h"
 #include "ddzap.h"
 
-static int stop_pam(pamdata *iq){
-    if (iq->stop){
-	if(iq->stopped) return 1;
-	free(iq->data);
-	free(iq->data_points);
-	iq->stopped=1;
-	return 1;
-    }
-    return 0;
-}
-
 int init_pamdata(pamdata *iq, int color, int type, int width, int height)
 {
     int numiq = width;
-    iq->stop = 0;
-    iq->stopped = 0;
     width = 256;
     height = 256;	
     if (!( iq->data=(uint64_t *) malloc(sizeof(uint64_t) *256*256)))
@@ -205,10 +192,6 @@ uint64_t read_averaged_data (int fdin, pamdata *iq, long dtime)
 #define DTIME 40 // msec
 void pam_read_data (int fdin, pamdata *iq)
 {
-    if(stop_pam(iq)){
-	close(fdin);
-	return;
-    }
     if (iq->type == BIT8_IQ){
 	uint64_t maxd = 0;
 	maxd = read_averaged_data(fdin, iq, DTIME);
