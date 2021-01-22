@@ -53,7 +53,7 @@ typedef struct radb_
 
 int init_iqdata(iqdata *iq)
 {
-    init_pamdata(&iq->pam,1,BIT8_IQ);
+    init_pamdata(&iq->pam,1,BIT8_IQ,255,255);
     return 0;
 }
 
@@ -76,7 +76,7 @@ void shot_callback (GtkWidget *widget, gpointer *data)
 static gboolean key_function (GtkWidget *widget, GdkEventKey *event, gpointer data) {
     switch (event->keyval){
     case GDK_KEY_q: 
-    case GDK_KEY_Escape: 
+    case GDK_KEY_Escape:
 	gtk_widget_destroy(widget);
 	gtk_main_quit();
 	return TRUE;
@@ -88,7 +88,6 @@ static gboolean key_function (GtkWidget *widget, GdkEventKey *event, gpointer da
 
 void destroy_pixdata (guchar *pixels, gpointer data){
     iqdata *iq = (iqdata *) data;
-//    memset(iq->data_points,0,256*256*3);
 }
 
 /*
@@ -110,7 +109,7 @@ static void *get_pam_data(void *args) {
 	gtk_widget_queue_draw(image);
 	//gdk_threads_add_idle (got_data, iq);
     }
-    exit(0);
+    return 0;
 }
 
 static void realize_cb (GtkWidget *widget, gpointer data) {
@@ -252,8 +251,8 @@ int main (int argc, char **argv)
     gtk_window_set_default_size (GTK_WINDOW (window), WIDTH, HEIGHT);
     gtk_window_set_title (GTK_WINDOW (window), "DVB IQ");
 
-    g_signal_connect (window, "destroy", G_CALLBACK (close_window), NULL);
-    g_signal_connect (window, "key_press_event", G_CALLBACK (key_function),NULL);
+    g_signal_connect (window, "destroy", G_CALLBACK (close_window), (void*)&iq);
+    g_signal_connect (window, "key_press_event", G_CALLBACK (key_function),(void*)&iq);
     g_signal_connect (window, "realize", G_CALLBACK (realize_cb), (void *)&iq);   
     rbutton = make_radio_buttons(&iq,hbox);
 
