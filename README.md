@@ -1,3 +1,5 @@
+![256APSK](/screenshot/IQ-Screenshot000.png) 
+
 # DVB-IQ
 small example programs in C and PYTHON to show IQ data with libdddvb and 
 DigitalDevices MAX SX8
@@ -65,10 +67,6 @@ There is one more cli option for chosing the color scheme:
 `./dvb_iq -q X`
 
 selects scheme number X (1=red, 2=green, 3=blue, 4= multi color)
-
-With the screenshot button you can get pictures like this:
-
-![Screenshot] (/IQ-Screenshot000.png) 
 
 **ip_pam**
 
