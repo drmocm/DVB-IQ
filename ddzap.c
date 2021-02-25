@@ -350,7 +350,7 @@ struct dddvb_fe *ddzap(int argc, char **argv)
 			    re=write(fileno(stdout),buf,BUFFSIZE);
 			}
 		        fprintf(stderr,"writing pamdata\n");
-			if (outt ==2 ) init_pamdata(&iq,color,BIT8_IQ);
+			if (outt ==2 ) init_pamdata(&iq,color,BIT8_IQ,255,255);
 			while(outt == 2){
 			    pam_read_data(fd, &iq);
 			    pam_write(STDOUT_FILENO, &iq);

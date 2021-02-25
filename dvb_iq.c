@@ -99,23 +99,19 @@ static gboolean got_data (gpointer data)
 }
 */	
 
-static void *get_pam_data(void *args) {
+static gboolean get_pam_data(void *args) {
     iqdata *iq = (iqdata *)args;
     GError *error = NULL;
 
-    while(1) {
-	pam_read_data(iq->fd, &iq->pam);
-
-	gtk_widget_queue_draw(image);
-	//gdk_threads_add_idle (got_data, iq);
-    }
-    return 0;
+    pam_read_data(iq->fd, &iq->pam);
+    gtk_widget_queue_draw(image);
+    
+    return FALSE;
 }
 
 static void realize_cb (GtkWidget *widget, gpointer data) {
-    /* start the video playing in its own thread */
-    pthread_t tid;
-    pthread_create(&tid, NULL, get_pam_data, (void *)data);
+    iqdata *iq = (iqdata *)data;
+    g_idle_add (get_pam_data, data);
 }
 
 gboolean
@@ -138,6 +134,7 @@ draw_callback (GtkWidget *widget, cairo_t *cr, gpointer data)
     
     gdk_cairo_set_source_pixbuf(cr, pixbuf, 0, 0);
     cairo_paint(cr);
+    g_idle_add (get_pam_data, data);
 
     if (iq->save){
 	char filename[25];

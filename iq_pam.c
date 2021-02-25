@@ -34,7 +34,7 @@ int main (int argc, char **argv)
 
 	fd = fileno(stdin);
     }
-    if ( init_pamdata(&iq,color,type) < 0 ) exit(1);
+    if ( init_pamdata(&iq,color,type,255,255) < 0 ) exit(1);
     iq.col = color;
 
     while (1){
