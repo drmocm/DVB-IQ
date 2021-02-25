@@ -66,6 +66,10 @@ There is one more cli option for chosing the color scheme:
 
 selects scheme number X (1=red, 2=green, 3=blue, 4= multi color)
 
+With the screenshot button you can get pictures like this:
+
+![Screenshot] (/IQ-Screenshot000.png) 
+
 **ip_pam**
 
 I added a simpler program that takes the same CLI options but just creates 
