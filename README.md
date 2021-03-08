@@ -23,7 +23,7 @@ On an Ubuntu system this would look like this:
 
 `git clone https://github.com/DigitalDevices/dddvb.git` 
 
-`cd internal_dddvb/lib/; make` 
+`cd dddvb/lib/; make` 
 
 `sudo make install` 
 
