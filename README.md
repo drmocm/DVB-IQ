@@ -21,7 +21,7 @@ On an Ubuntu system this would look like this:
 
 `sudo apt-get install build-essential libgtk-3-dev libglib2.0-dev pkg-config dvb-apps` 
 
-`git clone https://github.com/DigitalDevices/internal_dddvb.git` 
+`git clone https://github.com/DigitalDevices/dddvb.git` 
 
 `cd internal_dddvb/lib/; make` 
 
