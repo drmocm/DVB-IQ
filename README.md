@@ -42,7 +42,13 @@ A typical example call would be:
 
 `./dvb_iq -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000` 
 
-this visualizes the output you would get from: 
+As with ddzap, the -d, -p, -f, -s options set the tuning parameters and the -c
+points to the directory of the LNB configuration file dddvb.conf.
+The -l64 is due to my setup of usimg 4 unicable LNBs on 2 cables with 2 LNBs on 
+each cable, i.e. in port one are LNBs pointing at Astra 19.2E and Eutelsat 13E (-l0 -l1) 
+and on the second port are Astra 28.2E and one test lnb which may vary (-l64 and -l65).
+
+The line above visualizes the output you would get from: 
 
 `ddzap -d S2 -p v -f 10847000  -s 23000000  -c ~/ddzapconf/ -l64 -i 0x10000000 -o` 
 
