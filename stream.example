@@ -1,0 +1,3 @@
+#./iq_pam -d S2 -p v -f 12522000 -s 22500000 -c ~/ddzapconf/ -l64 -i 0x10000000 -q 6| ffmpeg -f pam_pipe -i - -vcodec libx264 -f matroska - | gst-launch-1.0 fdsrc fd=0 ! matroskademux ! h264parse ! avdec_h264 ! videoconvert ! autovideosink
+
+./iq_pam -d S2 -p v -f 12522000 -s 22500000 -c ~/ddzapconf/ -l64 -i 0x10000000 -q 6| ffmpeg -f pam_pipe -i - -vcodec libx264 -f mpegts - | vlc -I dummy - --sout='#std{access=http,mux=ts,dst=:8554}' 

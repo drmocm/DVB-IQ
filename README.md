@@ -81,6 +81,9 @@ PAM images which can be fed to ffplay as follows:
 
 `/iq_pam  -d S2 -p v -f 12522000  -s 22500000  -c ~/ddzapconf/ -l64  -i 0x10000004 -q 6|  ffplay -f pam_pipe -i -`
 
+You could also stream it like this (see stream.example):
+
+`./iq_pam -d S2 -p v -f 12522000 -s 22500000 -c ~/ddzapconf/ -l64 -i 0x10000000 -q 6| ffmpeg -f pam_pipe -i - -vcodec libx264 -f mpegts - | vlc -I dummy - --sout='#std{access=http,mux=ts,dst=:8554}'`
 
 **For the PYTHON example**
 
